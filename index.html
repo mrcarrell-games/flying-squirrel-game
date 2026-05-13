@@ -1,0 +1,4303 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flying Squirrel Math Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #87CEEB; /* sky blue */
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      image-rendering: pixelated; /* retro look */
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+// ------------------
+// CANVAS SETUP
+// ------------------
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+ctx.imageSmoothingQuality = "low";
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", () => {
+  resizeCanvas();
+});
+
+
+// ------------------
+// GAME STATE
+// ------------------
+let gameOver = false;
+let isPaused = false;
+
+let totalNutsCollected = 0;
+let level = 1;
+
+let lives = 5;
+
+let totalScore = 0;
+
+let owlActive = false;
+let owlTree = null;
+
+let owlCompletedForLevel = false;
+
+let message = "";
+let messageTimer = 0;
+
+let pauseFlashTimer = 0;
+let pauseFlashVisible = true;
+
+let pauseMenuFlashTimer = 0;
+let pauseMenuFlashVisible = true;
+
+let gameWon = false;
+
+let nutsNeededForOwl = 5;
+let nutClusters = [];
+
+let nutClusterTimer = 0;
+let nextNutClusterIn  = getRandomNutClusterInterval();
+
+let onStartPage = true;
+let startPageImage = new Image();
+startPageImage.src = "startup.png";
+let startPageLoaded = false;
+let flashTimer = 0;
+const flashInterval = 50; // frames between flashes, higher = slower
+let flashVisible = true;
+
+let onExplanationPage = false;
+let explanationFlashTimer = 0;
+let explanationFlashVisible = true;
+const sumdogTalkImages = [];
+let sumdogTalkLoaded = 0;
+let sumdogTalkFrame = 0;
+let sumdogTalkFrameTimer = 0;
+const sumdogTalkFrameInterval = 15; // frames between image changes, adjust for speed
+
+for (let i = 1; i <= 3; i++) {
+  const img = new Image();
+  img.src = `sumdogtalk${i}.png`;
+  img.onload = function() {
+    sumdogTalkLoaded++;
+  };
+  sumdogTalkImages.push(img);
+}
+
+let onExplanationPage2 = false;
+let explanationFlash2Timer = 0;
+let explanationFlash2Visible = true;
+const sumdogFibTalkImages = [];
+let sumdogFibTalkLoaded = 0;
+let sumdogFibTalkFrame = 0;
+let sumdogFibTalkFrameTimer = 0;
+const sumdogFibTalkFrameInterval = 15;
+
+for (let i = 1; i <= 3; i++) {
+  const img = new Image();
+  img.src = `sumdogandfibtalk${i}.png`;
+  img.onload = function() {
+    sumdogFibTalkLoaded++;
+  };
+  sumdogFibTalkImages.push(img);
+}
+
+let onExplanationPage3 = false;
+let explanationImage3 = new Image();
+let explanationImage3Loaded = false;
+let explanationFlash3Timer = 0;
+let explanationFlash3Visible = true;
+
+let onExplanationPage4 = false;
+let explanationFlash4Timer = 0;
+let explanationFlash4Visible = true;
+
+// ------------------
+// OWL TEACHING PAGE
+// ------------------
+let onOwlPage = false;
+
+const owlTalkImages = [];
+let owlTalkLoaded = 0;
+let owlTalkFrame = 0;
+let owlTalkFrameTimer = 0;
+const owlTalkFrameInterval = 15;
+
+for (let i = 1; i <= 2; i++) {
+  const img = new Image();
+  img.src = `owltalk${i}.png`;
+  img.onload = function() {
+    owlTalkLoaded++;
+  };
+  owlTalkImages.push(img);
+}
+
+let owlTalk1 = new Image();
+owlTalk1.src = "owltalk1.png";
+
+let owlTalk2 = new Image();
+owlTalk2.src = "owltalk2.png";
+
+let owlTalkTimer = 0;
+
+let owlTextPages = [];
+let owlCurrentPage = 0;
+
+let onLevel1OwlPage2 = false;
+let owlPage2FlashTimer = 0;
+let owlPage2FlashVisible = true;
+
+let onLevel1OwlPage3 = false;
+let owlPage3FlashTimer = 0;
+let owlPage3FlashVisible = true;
+
+explanationImage3.onload = function() {
+  explanationImage3Loaded = true;
+};
+
+startPageImage.onload = function() {
+  startPageLoaded = true;
+};
+
+function getRandomNutClusterInterval() {
+  return Math.floor(Math.random() * 300) + 500;
+  // range: 80–220 frames
+}
+
+let inBossLevel = false;
+const bossLevelUnlocksAfter = 10; // change this to adjust when boss level starts
+
+// Boss level images
+let bossBackgroundImage = new Image();
+bossBackgroundImage.src = "forestbackground.png";
+
+let bossPineTreeImage = new Image();
+bossPineTreeImage.src = "pinetree.png";
+let bossPineTreeLoaded = false;
+
+let bossTentImage = new Image();
+bossTentImage.src = "tent.png";
+let bossTentLoaded = false;
+
+const angryManImages = [];
+let angryManLoaded = 0;
+let angryManFrame = 0;
+let angryManFrameTimer = 0;
+const angryManFrameInterval = 15;
+
+for (let i = 1; i <= 2; i++) {
+  const img = new Image();
+  img.src = `angryman${i}.png`;
+  img.onload = function() {
+    angryManLoaded++;
+  };
+  angryManImages.push(img);
+}
+
+bossPineTreeImage.onload = function() { bossPineTreeLoaded = true; };
+bossTentImage.onload = function() { bossTentLoaded = true; };
+
+let checkpoint = null;
+
+let currentQuestion = null;
+let showingQuestion = false;
+
+let showHitboxes = true; // set false later when you're done tuning
+
+// ------------------
+// SQUIRREL
+// ------------------
+let squirrel = {
+  x: 200,
+  y: 200,
+  width: 60,
+  height: 60,
+  velocity: 0
+};
+
+let squirrelReady = false;
+
+// ------------------
+// PHYSICS
+// ------------------
+const gravity = 0.15;       // very light gravity
+const lift = -4.5;          // gentle flap
+const airResistance = 0.99; // smooth glide
+
+// ------------------
+// GROUND
+// ------------------
+const groundHeight = 80;
+let groundX = 0;
+const groundSpeed = 2;
+
+const bg = new Image();
+bg.src = "forestbackground.png";
+
+let bgLoaded = false;
+
+bg.onload = function () {
+  console.log("Background loaded");
+  bgLoaded = true;
+};
+
+// ------------------
+// FOREGROUND (GROUND BUSHES)
+// ------------------
+
+let groundReady = false;
+
+const groundBushImages = [];
+
+let loadedGroundImages = 0;
+
+for (let i = 1; i <= 6; i++) {
+  const img = new Image();
+  img.src = `groundbushes${i}.png`;
+
+  img.onload = function () {
+    loadedGroundImages++;
+
+    if (loadedGroundImages === 6) {
+      groundReady = true;
+      initGroundBushes(); // ✅ ONLY NOW initialize
+    }
+  };
+
+  groundBushImages.push(img);
+}
+
+let groundSegments = [];
+let groundBushSpeed = 4; // same as world for now
+
+
+// TREES (bottom-only obstacles)
+let trees = [];
+const treeWidth = 80;             // width of each tree
+const treeSpeed = 2.5;              // same as ground speed
+let treeSpawnTimer = 0;
+const treeSpawnIntervalMin = 300; // min frames between trees
+const treeSpawnIntervalMax = 500; // max frames between trees
+let nextTreeIn = 100;   // First tree in ~0.67 seconds 
+
+// TREE SIZE SETTINGS (you can tweak these anytime)
+const treeMinWidth = 60;
+const treeMaxWidth = 120;
+
+const treeMinHeight = 450;
+const treeMaxHeight = 500;
+
+let lastTreeObj = null; // store the full tree object
+let lastTreeRightEdge = 0;
+
+let inBonusLevel = false;
+let bonusNutsSpawnTimer = 0;
+const bonusNutsSpawnInterval = 40; // frames between bonus nut spawns
+let bonusLevelTimer = 0;
+const bonusLevelDuration = 25 * 60; // 45 seconds at 60fps
+
+// ------------------
+// Forest
+// ------------------
+let bgX = 0;
+let bgSpeed = 2; // adjust speed to match gameplay
+
+// ------------------
+// NUTS
+// ------------------
+let nuts = [];
+
+const nutSize = 30;
+
+const nutSpeed = 2;
+
+let nutSpawnTimer = 0;
+const nutSpawnInterval = 140; // frames between nuts
+
+let nutCount = 0;
+
+let thrownNuts = [];  // nuts shot at crows
+const thrownNutSpeed = 6;  // horizontal speed of thrown nut
+const thrownNutSize = 32;  // size of thrown nut
+
+let nutAmmo = 0; // at top with nutCount etc.
+nutAmmo = Math.max(0, nutAmmo); // starts at 0, increases when collecting nuts
+
+// ------------------
+// CROWS
+// ------------------
+let crows = [];
+const crowWidth = 80;
+const crowHeight = 60;
+let crowSpeed = 4;
+const baseCrowSpeed = 4;
+const crowNutDropChance = 0.6;
+let crowSpawnTimer = 0;
+let crowSpawnInterval = 900;
+const baseCrowSpawnInterval = 900;
+let crowsPerSpawn = 0; // 0 means no crows
+
+// Random interval function for trees
+function getRandomTreeInterval() {
+  return Math.floor(Math.random() * (treeSpawnIntervalMax - treeSpawnIntervalMin + 1)) + treeSpawnIntervalMin;
+}
+
+// ------------------
+// RACOON BOSSES
+// ------------------
+// Raccoon image sets
+const raccoonSets = {
+  plate: [],
+  apple: [],
+  can: []
+};
+
+let raccoonSetsLoaded = 0;
+const totalRaccoonImages = 12; // 4 images x 3 sets
+
+for (let i = 1; i <= 4; i++) {
+  const plateImg = new Image();
+  plateImg.src = `racoonplate${i}.png`;
+  plateImg.onload = () => { raccoonSetsLoaded++; };
+  raccoonSets.plate.push(plateImg);
+
+  const appleImg = new Image();
+  appleImg.src = `racoonapple${i}.png`;
+  appleImg.onload = () => { raccoonSetsLoaded++; };
+  raccoonSets.apple.push(appleImg);
+
+  const canImg = new Image();
+  canImg.src = `racooncan${i}.png`;
+  canImg.onload = () => { raccoonSetsLoaded++; };
+  raccoonSets.can.push(canImg);
+}
+
+// Individual raccoon states
+// Order: index 0 = bottom (can), index 1 = middle (apple), index 2 = top (plate)
+const raccoons = [
+  {
+    set: "can",
+    frame: 0,
+    frameTimer: 0,
+    frameInterval: 10,
+    throwing: false,
+    throwTimer: 0,
+    throwInterval: getRandomThrowInterval(),
+    health: 100,
+    maxHealth: 100,
+    healTimer: 0,
+    healInterval: 600, // 10 seconds at 60fps
+    immune: false,
+    immuneTimer: 0,
+    immuneDuration: 300, // 5 seconds at 60fps
+    flashTimer: 0,
+    dead: false,
+    spinAngle: 0,
+    spinX: null,
+    spinY: null,
+    spinVelX: 0,
+    spinVelY: 0
+  },
+  {
+    set: "apple",
+    frame: 0,
+    frameTimer: 0,
+    frameInterval: 10,
+    throwing: false,
+    throwTimer: 0,
+    throwInterval: getRandomThrowInterval(),
+    health: 100,
+    maxHealth: 100,
+    healTimer: 0,
+    healInterval: 600,
+    immune: false,
+    immuneTimer: 0,
+    immuneDuration: 300,
+    flashTimer: 0,
+    dead: false,
+    spinAngle: 0,
+    spinX: null,
+    spinY: null,
+    spinVelX: 0,
+    spinVelY: 0
+  },
+  {
+    set: "plate",
+    frame: 0,
+    frameTimer: 0,
+    frameInterval: 10,
+    throwing: false,
+    throwTimer: 0,
+    throwInterval: getRandomThrowInterval(),
+    health: 100,
+    maxHealth: 100,
+    healTimer: 0,
+    healInterval: 600,
+    immune: false,
+    immuneTimer: 0,
+    immuneDuration: 300,
+    flashTimer: 0,
+    dead: false,
+    spinAngle: 0,
+    spinX: null,
+    spinY: null,
+    spinVelX: 0,
+    spinVelY: 0
+  }
+];
+
+// Branch heights from bottom of pine tree image
+const branchOffsets = [605, 855, 1130]; // bottom, middle, top (450, 450+125, 450+125+200)
+
+let bossProjectiles = [];
+
+// Projectile images
+let appleImage = new Image();
+appleImage.src = "apple.png";
+let appleLoaded = false;
+appleImage.onload = () => { appleLoaded = true; };
+
+let canImage = new Image();
+canImage.src = "can.png";
+let canLoaded = false;
+canImage.onload = () => { canLoaded = true; };
+
+let plateImage = new Image();
+plateImage.src = "plate.png";
+let plateLoaded = false;
+plateImage.onload = () => { plateLoaded = true; };
+
+// ------------------
+// IMAGE ANIMATIONS
+// ------------------
+const squirrelImages = [];
+
+for (let i = 1; i <= 4; i++) {
+  const img = new Image();
+  img.src = `squirrel${i}.png`;
+  squirrelImages.push(img);
+}
+
+// ------------------
+// CROW IMAGES
+// ------------------
+const crowImages = [];
+
+for (let i = 1; i <= 4; i++) {
+  const img = new Image();
+  img.src = `crow${i}.png`;
+  crowImages.push(img);
+}
+
+// ------------------
+// TREE IMAGES
+// ------------------
+const treeImages = [];
+
+for (let i = 1; i <= 8; i++) {
+  const img = new Image();
+  img.src = `Tree${i}.png`;
+  treeImages.push(img);
+}
+
+const treeSettings = [
+  { height: 530, widthScale: 1.0 },
+  { height: 500, widthScale: 2 }, 
+  { height: 385, widthScale: 1.5 }, 
+  { height: 350, widthScale: 1.6 },
+  { height: 470, widthScale: 1.25 },
+  { height: 300, widthScale: .9 },
+  { height: 395, widthScale: 1.1 },
+  { height: 350, widthScale: 1.5 }
+];
+
+const treeLeafHitboxes = [
+  // Tree 1
+  { type: "triangle", top: 520, bottom: 200, leftInset: 10, rightInset: 10 },
+
+  // Tree 2
+  { type: "rect", top: 425, bottom: 180, leftInset: 180, rightInset: 180 },
+
+  // Tree 3 (triangle example)
+  { type: "triangle", top: 375, bottom: 100, leftInset: 30, rightInset: 30 },
+
+  // Tree 4
+  { type: "rect", top: 300, bottom: 130, leftInset: 115, rightInset: 115 },
+
+  // Tree 5
+  { type: "rect", top: 400, bottom: 175, leftInset: 125, rightInset: 135 },
+
+  // Tree 6
+  { type: "rect", top: 265, bottom: 145, leftInset: 65, rightInset: 65 },
+
+  // Tree 7
+  { type: "rect", top: 340, bottom: 150, leftInset: 100, rightInset: 100 },
+
+  // Tree 8
+  { type: "rect", top: 280, bottom: 150, leftInset: 120, rightInset: 120 }
+];
+
+let nutImage = new Image();
+nutImage.src = "nut.png";
+
+let currentFrame = 0;     // 0 = squirrel1.png (glide)
+let isFlapping = false;
+let flapTimer = 0;
+const flapSpeed = 5;      // lower = faster animation
+
+let crowFrame = 0;
+let crowFlapTimer = 0;
+const crowFlapSpeed = 6;
+
+const crowAnimationSequence = [1, 0, 3, 2, 3, 0]; // indexes of crowImages
+
+// ------------------
+// OWL IMAGE
+// ------------------
+let owlQueued = false;
+let owlSpawnCountdown = 0;
+let owlSpawnDelay = 0;
+const owlSpawnDelayFrames = 300; // ~2 seconds at 60fps (adjust if you want)
+
+let owlImage = new Image();
+owlImage.src = "owl.png";   // ← Change this to your actual filename
+let owlLoaded = false;
+
+let treeSpawningEnabled = true;
+
+owlImage.onload = function() {
+    console.log("Owl image loaded successfully");
+    owlLoaded = true;
+};
+
+owlImage.onerror = function() {
+    console.error("Failed to load owl.png - check filename and path");
+};
+
+// ------------------
+// DEAD TREE IMAGE
+// ------------------
+let deadTreeImage = new Image();
+deadTreeImage.src = "deadtree.png";
+
+let deadTreeLoaded = false;
+
+deadTreeImage.onload = function () {
+  console.log("Dead tree loaded");
+  deadTreeLoaded = true;
+};
+
+deadTreeImage.onerror = function () {
+  console.error("Failed to load deadtree.png");
+};
+
+const deadTreeSpawnChance = 0.05; // 🔧 TESTING (change to 0.05 later)
+
+const deadTreeSize = 500; // fixed size (same width & height)
+const deadTreeWidth = 400;
+const deadTreeHeight = 500; 
+
+// ------------------
+// THROWN NUT IMAGE
+// ------------------
+let thrownNutImage = new Image();
+thrownNutImage.src = "thrownnut.png";   // Make sure the filename matches exactly
+let thrownNutLoaded = false;
+
+thrownNutImage.onload = function () {
+    console.log("Thrown nut image loaded successfully");
+    thrownNutLoaded = true;
+};
+
+thrownNutImage.onerror = function () {
+    console.error("Failed to load thrownnut.png - check filename and path");
+};
+
+startGame();
+
+// ------------------
+// INPUT
+// ------------------
+
+document.addEventListener("keydown", function(event) {
+    // Start page
+    if (onStartPage && event.code === "KeyC") {
+    onStartPage = false;
+    onExplanationPage = true;  // ← go to explanations first
+    return;
+}
+
+    if (onExplanationPage && event.code === "KeyC") {
+    onExplanationPage = false;
+    onExplanationPage2 = true;
+    return;
+    }
+
+    if (onExplanationPage2 && event.code === "KeyC") {
+      onExplanationPage2 = false;
+      onExplanationPage3 = true;
+      return;
+     }
+
+    if (onExplanationPage3 && event.code === "KeyC") {
+    onExplanationPage3 = false;
+    if (window.page3Overflow && window.page3Overflow.length > 0) {
+      onExplanationPage4 = true;
+    } else {
+      resetGame(true);
+    }
+    return;
+  }
+
+  if (onExplanationPage4 && event.code === "KeyC") {
+    onExplanationPage4 = false;
+    resetGame(true);
+    return;
+  }
+  
+  if (onOwlPage && event.code === "KeyC") {
+    onOwlPage = false;
+    if (window.owlPage1Overflow && window.owlPage1Overflow.length > 0) {
+      onLevel1OwlPage2 = true;
+    } else {
+      completeLevelUp();
+      isPaused = false;
+    }
+    return;
+  }
+
+  if (onLevel1OwlPage2 && event.code === "KeyC") {
+    onLevel1OwlPage2 = false;
+    if (window.owlPage2Overflow && window.owlPage2Overflow.length > 0) {
+      onLevel1OwlPage3 = true;
+    } else {
+      completeLevelUp();
+      isPaused = false;
+    }
+    return;
+  }
+
+  if (onLevel1OwlPage3 && event.code === "KeyC") {
+    onLevel1OwlPage3 = false;
+    completeLevelUp();
+    isPaused = false;
+    return;
+  }
+
+  if (onLevel1OwlPage2 && event.code === "KeyB") {
+    onLevel1OwlPage2 = false;
+    onOwlPage = true;
+    window.owlPage1Overflow = [];
+    return;
+  }
+
+  if (onLevel1OwlPage3 && event.code === "KeyB") {
+    onLevel1OwlPage3 = false;
+    onLevel1OwlPage2 = true;
+    window.owlPage2Overflow = [];
+    return;
+  }
+    
+    // Flap
+    if (event.code === "Space" && !gameOver) {
+        squirrel.velocity = lift;
+
+        if (!isFlapping) {
+            isFlapping = true;
+            currentFrame = 0;
+            flapTimer = 0;
+        }
+    }
+
+    // Shoot nut
+    if (event.code === "KeyF" && !gameOver && nutAmmo > 0) {
+        shootNut();
+        nutAmmo = Math.max(0, nutAmmo - 1);
+    }
+
+    // Pause toggle
+    if (event.code === "KeyP") {
+        isPaused = !isPaused;
+    }
+
+    // Reset game
+    if (event.code === "KeyR" && (gameOver || gameWon)) {
+        gameOver = false;
+        gameWon = false;
+        inBossLevel = false;
+        resetGame(true);
+    }
+
+});
+
+// ------------------
+// UPDATE FUNCTIONS
+// ------------------
+function update() {
+  if (gameOver) return;
+  if (isPaused) return;
+
+  // Squirrel physics
+  squirrel.velocity += gravity;
+  squirrel.velocity *= airResistance;
+  squirrel.y += squirrel.velocity;
+
+  // Ground collision
+  if (squirrel.y + squirrel.height > canvas.height - groundHeight) {
+    handleDeath();
+    return;        
+  }
+
+  // Ceiling collision
+  if (squirrel.y < 0) {
+    squirrel.y = 0;
+    squirrel.velocity = 0;
+  }
+
+  // Ground scroll
+  groundX -= groundSpeed;
+  if (groundX <= -canvas.width) {
+    groundX = 0;
+  }
+
+  bgX -= bgSpeed;
+
+  // reset seamlessly when one image scrolls off
+  if (bgX <= -canvas.width) {
+  bgX = 0;
+  }
+
+  if (
+  !owlActive &&
+  !owlCompletedForLevel &&
+  !owlQueued &&
+  totalNutsCollected >= nutsNeededForOwl
+) {
+  treeSpawningEnabled = false;
+  owlQueued = true;
+  owlSpawnCountdown = 240; // 6 seconds at 60fps
+
+  message = "Find Origin the Owl!";
+  messageTimer = 180;
+}
+
+if (owlQueued) {
+  owlSpawnCountdown--;
+
+  if (owlSpawnCountdown <= 0) {
+    spawnOwlTree();
+    owlActive = true;
+    owlQueued = false;
+  }
+}
+
+nutClusterTimer++;
+
+if (nutClusterTimer >= nextNutClusterIn) {
+  nutClusterTimer = 0;
+  nextNutClusterIn = getRandomNutClusterInterval();
+
+  spawnNutCluster();
+}
+
+  // Obstacles update
+  updateTrees();
+  updateNuts();
+  updateCrows();
+  updateThrownNuts();
+  updateGroundBushes();
+
+  // Move nut clusters EVERY FRAME
+  for (let i = nutClusters.length - 1; i >= 0; i--) {
+    const nut = nutClusters[i];
+
+    nut.x -= groundBushSpeed;
+
+    // remove offscreen
+    if (nut.x + nut.width < 0) {
+      nutClusters.splice(i, 1);
+    }
+   }
+
+  for (let i = nutClusters.length - 1; i >= 0; i--) {
+  const nut = nutClusters[i];
+
+  if (!nut.collected && isColliding(squirrel, nut)) {
+    nut.collected = true;
+
+    const reward = Math.floor(Math.random() * 3) + 3; 
+  // gives 3, 4, or 5
+
+  nutCount += reward;
+  nutAmmo += reward;
+  totalNutsCollected += reward;
+  totalScore += 100;
+
+  message = "You found a nut cluster!";
+    messageTimer = 90;
+  }
+ }
+}
+
+let groundScroll = 0;
+
+function updateGroundBushes() {
+  // only advance ONCE per frame
+  groundScroll += groundBushSpeed;
+
+  const tileW = groundTileWidth;
+
+  const first = groundSegments[0];
+
+  if (!first) return;
+
+  if (groundScroll >= tileW) {
+    groundScroll -= tileW;
+
+    groundSegments.shift();
+
+    const last = groundSegments[groundSegments.length - 1];
+
+    const img = groundBushImages[Math.floor(Math.random() * groundBushImages.length)];
+
+    groundSegments.push({
+      x: last.x + tileW,
+      image: img
+    });
+  }
+}
+
+function updateBonusLevel() {
+  // Timer check
+  bonusLevelTimer++;
+  if (bonusLevelTimer >= bonusLevelDuration) {
+    bonusLevelTimer = 0;
+    exitBonusLevel();
+    return;
+  }
+
+  // Squirrel physics
+  squirrel.velocity += gravity;
+  squirrel.velocity *= airResistance;
+  squirrel.y += squirrel.velocity;
+
+  // Ceiling collision
+  if (squirrel.y < 0) {
+    squirrel.y = 0;
+    squirrel.velocity = 0;
+  }
+
+  // Hit ground → exit bonus level
+  if (squirrel.y + squirrel.height > canvas.height - groundHeight) {
+    exitBonusLevel();
+    return;
+  }
+
+  // Scroll background and ground
+  bgX -= bgSpeed;
+  if (bgX <= -canvas.width) bgX = 0;
+
+  updateGroundBushes();
+
+  // Spawn bonus nuts
+  bonusNutsSpawnTimer++;
+  if (bonusNutsSpawnTimer >= bonusNutsSpawnInterval) {
+    bonusNutsSpawnTimer = 0;
+    spawnBonusNut();
+  }
+
+  // Spawn nut clusters same as normal game
+  nutClusterTimer++;
+  if (nutClusterTimer >= nextNutClusterIn) {
+    nutClusterTimer = 0;
+    nextNutClusterIn = getRandomNutClusterInterval();
+    spawnNutCluster();
+  }
+
+  // Collect nuts
+  for (let i = nuts.length - 1; i >= 0; i--) {
+    const nut = nuts[i];
+    nut.x -= nutSpeed;
+
+    const nutHitbox = {
+      x: nut.x,
+      y: nut.y,
+      width: nut.size,
+      height: nut.size
+    };
+
+    if (isColliding(squirrel, nutHitbox)) {
+      const worth = nut.multiplier ? Math.round((nut.multiplier - 1.0) / 0.1) + 1 : 1;
+      nutCount += worth;
+      nutAmmo += worth;
+      totalNutsCollected += worth;
+      totalScore += worth * 10;
+      nuts.splice(i, 1);
+      continue;
+    }
+
+    if (nut.x + nut.size < 0) {
+      nuts.splice(i, 1);
+    }
+  }
+
+  // Collect nut clusters
+  for (let i = nutClusters.length - 1; i >= 0; i--) {
+    const nut = nutClusters[i];
+    nut.x -= groundBushSpeed;
+
+    if (nut.x + nut.width < 0) {
+      nutClusters.splice(i, 1);
+      continue;
+    }
+
+    if (!nut.collected && isColliding(squirrel, nut)) {
+      nut.collected = true;
+      const reward = Math.floor(Math.random() * 3) + 3;
+      nutCount += reward;
+      nutAmmo += reward;
+      totalNutsCollected += reward;
+      totalScore += 100;
+      message = "Nut cluster!";
+      messageTimer = 90;
+    }
+  }
+
+  updateThrownNuts();
+}
+
+function startGame() {
+  resizeCanvas();
+  updateCrowSettings();
+
+  nextTreeIn = getRandomTreeInterval();
+  treeSpawnTimer = 0;
+  
+  treeSpawnTimer = nextTreeIn;
+
+  requestAnimationFrame(gameLoop);
+}
+
+function updateThrownNuts() {
+    for (let i = thrownNuts.length - 1; i >= 0; i--) {
+        const nut = thrownNuts[i];
+        nut.x += thrownNutSpeed;  // move right toward crows
+
+        // Check collision with crows
+        for (let j = crows.length - 1; j >= 0; j--) {
+            const crow = crows[j];
+            if (isColliding(nut, crow)) {
+
+    totalScore += 25;
+
+    // Chance to drop a nut
+    if (Math.random() < crowNutDropChance) {
+        spawnDroppedNut(crow.x, crow.y);
+    }
+
+    // 💥 Trigger hit animation instead of instantly removing
+    crow.hit = true;       // mark as hit
+    crow.fallSpeed = 2;    // start falling slowly
+
+    thrownNuts.splice(i, 1); // remove the nut
+    break;
+    }
+        }
+
+        // Remove nut if offscreen
+        if (nut.x > canvas.width) {
+            thrownNuts.splice(i, 1);
+        }
+    }
+}
+
+function getRandomThrowInterval() {
+  // Random between 1 and 5 seconds at 60fps
+  return Math.floor(Math.random() * (5 * 60 - 1 * 60 + 1)) + 1 * 60;
+}
+
+// ------------------
+// OBSTACLE FUNCTIONS
+// ------------------
+
+function initGroundBushes() {
+  groundSegments = [];
+
+  const sampleImg = groundBushImages[0];
+
+  if (!sampleImg.complete) return;
+
+  console.log("naturalWidth:", sampleImg.naturalWidth, "naturalHeight:", sampleImg.naturalHeight, "groundScale:", groundScale);
+  groundTileWidth = Math.floor(sampleImg.naturalWidth * groundScale);
+  groundTileHeight = Math.round(sampleImg.naturalHeight * groundScale);
+  console.log("groundTileWidth:", groundTileWidth, "groundTileHeight:", groundTileHeight);
+
+  let x = 0;
+
+  while (x < canvas.width + groundTileWidth * 2) {
+    const img = groundBushImages[Math.floor(Math.random() * groundBushImages.length)];
+
+    groundSegments.push({
+      x: x,
+      image: img
+    });
+
+    x = Math.round(x + groundTileWidth); // ✅ EXACT fixed step
+  }
+}
+
+// Spawn a single tree at the bottom
+function spawnTree() {
+
+  const lastTree = trees[trees.length - 1];
+
+  // 🚫 Prevent trees from spawning too close together
+  if (lastTree && (canvas.width - (lastTree.x + lastTree.width)) < 250) {
+    return;
+  }
+
+  // 🌲 Decide if we spawn a DEAD TREE
+  if (deadTreeLoaded && Math.random() < deadTreeSpawnChance) {
+    spawnDeadTree();
+    return;
+  }
+
+  // 🌳 Normal tree spawn
+  const index = Math.floor(Math.random() * treeImages.length);
+  const randomImage = treeImages[index];
+
+  const settings = treeSettings[index];
+  const height = settings.height;
+
+  let width = height;
+
+  // Maintain aspect ratio
+  if (randomImage.complete && randomImage.naturalWidth > 0) {
+    const aspectRatio = randomImage.naturalWidth / randomImage.naturalHeight;
+    width = height * aspectRatio;
+  }
+
+  // Apply per-tree width scaling
+  width *= settings.widthScale;
+
+  const treeTop = canvas.height - groundHeight - height;
+  const startX = canvas.width;
+
+  // Trunk setup
+  const trunkWidth = width * 0.1;
+  const trunkHeight = height - 50;
+
+  // Leaf hitbox config
+  const leafConfig = treeLeafHitboxes[index];
+
+  const groundY = canvas.height - groundHeight;
+  const leafTop = groundY - leafConfig.top;
+  const leafBottom = groundY - leafConfig.bottom;
+
+  const leavesWidth = width - leafConfig.leftInset - leafConfig.rightInset;
+  const leavesX = startX + leafConfig.leftInset;
+
+  const newTree = {
+  x: startX,
+  width,
+  height,
+  image: randomImage,
+
+  hitboxes: {
+  leaves: {
+    type: leafConfig.type,
+    x: leavesX,
+    y: leafTop,
+    width: leavesWidth,
+    height: leafBottom - leafTop,
+    p1: { x: leavesX,                   y: leafBottom },
+    p2: { x: leavesX + leavesWidth / 2, y: leafTop    },
+    p3: { x: leavesX + leavesWidth,     y: leafBottom }
+  },
+  trunk: {
+    x: startX + (width / 2) - 25,
+    y: leafBottom,
+    width: 50,
+    height: canvas.height - groundHeight - leafBottom
+  }
+ }
+};
+
+  trees.push(newTree);
+
+  // 🌰 Spawn nut between trees (unchanged logic)
+  if (Math.random() < 0.7) {
+    spawnNutBetweenTrees(newTree);
+  }
+
+  lastTreeObj = newTree;
+}
+
+function spawnDeadTree() {
+  const height = deadTreeHeight;
+  const width = deadTreeWidth;
+
+  const treeTop = canvas.height - groundHeight - height;
+
+  const x = canvas.width;
+
+  const newTree = {
+    x: x,
+    width: width,
+    height: height,
+    image: deadTreeImage,
+    isDeadTree: true,
+
+    hitboxes: {
+      leaves: {
+        x: x + 170,
+        y: treeTop + 20,
+        width: 50,
+        height: 200
+      },
+
+      upperTrunk: {
+        x: x + 160,
+        y: treeTop + 300,
+        width: 80,
+        height: 140
+      },
+
+      hole: {
+        x: x + 155,
+        y: treeTop + 225,
+        width: 100,
+        height: 80
+      },
+
+      lowerTrunk: {
+        x: x + 160,
+        y: treeTop + 240,
+        width: 80,
+        height: 200
+      }
+    }
+  };
+
+  trees.push(newTree);
+}
+
+function spawnOwlTree() {
+  const height = Math.random() * 200 + 250;
+
+  owlTree = {
+    x: canvas.width,
+    width: treeWidth,
+    height: height,
+    hasOwl: true,
+    hitboxes: null   // optional but makes intent clear
+  };
+
+  trees.push(owlTree);
+}
+
+function spawnNutCluster() {
+  const groundY = canvas.height - groundHeight - 80;
+
+  nutClusters.push({
+    x: canvas.width + 100, // spawn off right side
+    y: groundY - Math.random() * 40,
+    width: 50,
+    height: 50,
+    collected: false
+  });
+}
+
+function spawnNutBetweenTrees(currentTree) {
+  const estimatedGap = nextTreeIn * treeSpeed;
+  const x = canvas.width + currentTree.width / 2 + estimatedGap / 2;
+
+  // Make sure nut doesn't overlap the current tree's hitboxes vertically
+  let forbiddenTop = canvas.height;
+  let forbiddenBottom = 0;
+
+  if (currentTree.hitboxes?.leaves) {
+    forbiddenTop = Math.min(forbiddenTop, currentTree.hitboxes.leaves.y);
+  }
+
+  if (currentTree.hitboxes?.trunk) {
+    forbiddenTop = Math.min(forbiddenTop, currentTree.hitboxes.trunk.y);
+  }
+
+  const safeTop = 50;
+  const safeBottom = canvas.height - groundHeight - nutSize - 20;
+
+  if (safeBottom <= safeTop) return;
+
+  // Pick a y that is above the tree hitboxes or in the open sky
+  // Try up to 10 times to find a valid y position
+  let y;
+  let attempts = 0;
+
+  do {
+    y = Math.random() * (safeBottom - safeTop) + safeTop;
+    attempts++;
+  } while (y > forbiddenTop - nutSize && y < safeBottom && attempts < 10);
+
+  nuts.push({
+    x: x,
+    y: y,
+    size: nutSize,
+    multiplier: 1.0
+  });
+}
+
+function spawnNut() {
+
+  let y;
+
+  if (trees.length > 0) {
+
+    const lastTree = trees[trees.length - 1];
+
+    // Height of top of tree
+    const treeTop = canvas.height - groundHeight - lastTree.height;
+
+    // Nut zone: slightly above tree but not too high
+    const nutZoneTop = treeTop - 400;
+    const nutZoneBottom = treeTop - 200;
+
+    if (nutZoneTop > 0) {
+      y = Math.random() * (nutZoneBottom - nutZoneTop) + nutZoneTop;
+    } else {
+      y = treeTop - 60;
+    }
+
+  } else {
+
+    // fallback if no trees yet
+    y = canvas.height / 2;
+
+  }
+
+  nuts.push({
+    x: canvas.width,
+    y: y,
+    size: nutSize
+  });
+
+}
+
+function spawnCrow() {
+  if (crowsPerSpawn <= 0) return;
+
+  for (let i = 0; i < crowsPerSpawn; i++) {
+    const yMin = canvas.height * 0.1;
+    const yMax = canvas.height * 0.7;
+
+    // Divide the vertical space into equal slots, one per crow
+    const slotHeight = (yMax - yMin) / crowsPerSpawn;
+    const slotTop = yMin + i * slotHeight;
+    const y = slotTop + Math.random() * slotHeight;
+    const xOffset = i * 80;
+
+    crows.push({
+      x: canvas.width + 50 + xOffset,
+      y: y,
+      width: crowWidth,
+      height: crowHeight,
+      flapOffset: Math.floor(Math.random() * 6),
+      hit: false,
+      fallSpeed: 0
+    });
+  }
+}
+
+function spawnBossProjectile(raccoonIndex) {
+  const pineWidth = bossPineTreeLoaded
+    ? bossPineTreeImage.naturalWidth * (canvas.height / bossPineTreeImage.naturalHeight)
+    : 100;
+  const pineX = canvas.width - pineWidth;
+  const pineScale = canvas.height / bossPineTreeImage.naturalHeight;
+  const raccoonHeight = 60;
+  const rightOffsets = [20, 50, 90];
+
+  const branchYFromBottom = branchOffsets[raccoonIndex] * pineScale;
+  const raccoonY = canvas.height - branchYFromBottom - raccoonHeight;
+  const raccoonX = pineX + pineWidth / 2 + rightOffsets[raccoonIndex];
+
+  // Starting position of projectile
+  const startX = raccoonX;
+  const startY = raccoonY + raccoonHeight / 2;
+
+  // Direction toward squirrel at moment of throw
+  const dx = squirrel.x - startX;
+  const dy = squirrel.y - startY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const speed = 4;
+  const velX = (dx / dist) * speed;
+  const velY = (dy / dist) * speed;
+
+  const rc = raccoons[raccoonIndex];
+
+  bossProjectiles.push({
+    type: rc.set,       // "apple", "can", or "plate"
+    x: startX,
+    y: startY,
+    width: 20,
+    height: 20,
+    velX: velX,
+    velY: velY,
+    startX: startX,
+    startY: startY,
+    angle: 0,           // for spinning
+    age: 0              // frames since spawned
+  });
+}
+
+function spawnDroppedNut(x, y) {
+
+  nuts.push({
+    x: x,
+    y: y,
+    size: nutSize
+  });
+
+}
+
+function triggerOwlEvent() {
+  isPaused = true;
+  onOwlPage = true;
+  owlTalkFrame = 0;
+  owlTalkTimer = 0;
+  window.owlPage1Overflow = [];
+  window.owlPage2Overflow = [];
+}
+
+function updateTrees() {
+  treeSpawnTimer++;
+
+  // Spawn normal trees
+  if (treeSpawningEnabled && !owlActive && treeSpawnTimer >= nextTreeIn) {
+    treeSpawnTimer = 0;
+    nextTreeIn = getRandomTreeInterval();
+    spawnTree();
+  }
+
+  for (let i = trees.length - 1; i >= 0; i--) {
+    const tree = trees[i];
+
+    // Move tree ONCE
+    tree.x -= treeSpeed;
+
+    if (tree.isDeadTree && tree.hitboxes) {
+  const h = tree.hitboxes;
+  h.leaves.x -= treeSpeed;
+  h.upperTrunk.x -= treeSpeed;
+  h.lowerTrunk.x -= treeSpeed;
+  h.hole.x -= treeSpeed;
+} else if (!tree.isDeadTree && tree.hitboxes?.leaves) {
+  const leaves = tree.hitboxes.leaves;
+  leaves.x -= treeSpeed;
+
+  if (leaves.type === "triangle") {
+    leaves.p1.x -= treeSpeed;
+    leaves.p2.x -= treeSpeed;
+    leaves.p3.x -= treeSpeed;
+  }
+
+  if (tree.hitboxes.trunk) {
+    tree.hitboxes.trunk.x -= treeSpeed;
+  }
+}
+
+    const trunk = tree.hitboxes?.trunk;
+    const leaves = tree.hitboxes?.leaves;
+
+    // Sync hitboxes ONLY with tree movement
+   if (tree.isDeadTree && tree.hitboxes) {
+
+  const h = tree.hitboxes;
+
+  // 🟨 Hole = bonus level
+  if (isColliding(squirrel, h.hole)) {
+    enterBonusLevel();
+    trees.splice(i, 1);
+    return;
+  }
+
+  // 🟥 Everything else = death
+  if (
+    isColliding(squirrel, h.leaves) ||
+    isColliding(squirrel, h.lowerTrunk)
+  ) {
+    handleDeath();
+    return;
+  }
+}
+
+    // -----------------------
+    // COLLISION DETECTION
+    // -----------------------
+    let collided = false;
+
+    if (leaves) {
+      let leavesCollision = false;
+
+      if (leaves.type === "rect") {
+        leavesCollision = isColliding(squirrel, leaves);
+      } else if (leaves.type === "triangle") {
+        const s = squirrel;
+
+        leavesCollision =
+          pointInTriangle(s.x, s.y,
+            leaves.p1.x, leaves.p1.y,
+            leaves.p2.x, leaves.p2.y,
+            leaves.p3.x, leaves.p3.y
+          ) ||
+          pointInTriangle(s.x + s.width, s.y,
+            leaves.p1.x, leaves.p1.y,
+            leaves.p2.x, leaves.p2.y,
+            leaves.p3.x, leaves.p3.y
+          ) ||
+          pointInTriangle(s.x, s.y + s.height,
+            leaves.p1.x, leaves.p1.y,
+            leaves.p2.x, leaves.p2.y,
+            leaves.p3.x, leaves.p3.y
+          ) ||
+          pointInTriangle(s.x + s.width, s.y + s.height,
+            leaves.p1.x, leaves.p1.y,
+            leaves.p2.x, leaves.p2.y,
+            leaves.p3.x, leaves.p3.y
+          );
+      }
+
+      if (leavesCollision) {
+        collided = true;
+      }
+    }
+ 
+    // Trunk collision
+    if (tree.hitboxes?.trunk) {
+      if (isColliding(squirrel, tree.hitboxes.trunk)) {
+       collided = true;
+    }
+   }
+
+    // Owl collision check
+    if (tree.hasOwl && tree.owlHitbox) {
+      if (isColliding(squirrel, tree.owlHitbox)) {
+        collided = true;
+      }
+    }
+
+    // -----------------------
+    // HANDLE COLLISION
+    // -----------------------
+    if (collided) {
+      if (tree.hasOwl) {
+        triggerOwlEvent();
+        trees.splice(i, 1);
+        return;
+      } else {
+        handleDeath();
+        return;
+      }
+    }
+
+    // -----------------------
+    // REMOVE OFFSCREEN TREES
+    // -----------------------
+    if (tree.x + tree.width < -50) {
+      trees.splice(i, 1);
+    }
+  }
+}
+
+function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+  const area = Math.abs(
+    (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1)
+  );
+
+  const area1 = Math.abs(
+    (x1 - px) * (y2 - py) - (x2 - px) * (y1 - py)
+  );
+
+  const area2 = Math.abs(
+    (x2 - px) * (y3 - py) - (x3 - px) * (y2 - py)
+  );
+
+  const area3 = Math.abs(
+    (x3 - px) * (y1 - py) - (x1 - px) * (y3 - py)
+  );
+
+  return Math.abs(area - (area1 + area2 + area3)) < 0.5;
+}
+
+function updateNuts() {
+
+  for (let i = nuts.length - 1; i >= 0; i--) {
+
+    const nut = nuts[i];
+    if (!nut) continue; // safety guard
+
+    nut.x -= treeSpeed;
+
+    const nutHitbox = {
+      x: nut.x,
+      y: nut.y,
+      width: nut.size,
+      height: nut.size
+    };
+
+    if (isColliding(squirrel, nutHitbox)) {
+  const worth = nut.multiplier ? Math.round((nut.multiplier - 1.0) / 0.1) + 1 : 1;
+  nutCount += worth;
+  nutAmmo += worth;
+  totalNutsCollected += worth;
+  totalScore += worth * 10;
+  nuts.splice(i, 1);
+  continue;
+}
+
+    if (nut.x + nut.size < 0) {
+      nuts.splice(i, 1);
+    }
+  }
+}
+
+function updateCrows() {
+    crowSpawnTimer++;
+    if (crowSpawnTimer >= crowSpawnInterval) {
+        crowSpawnTimer = 0;
+        spawnCrow();
+    }
+
+    for (let i = crows.length - 1; i >= 0; i--) {
+        const crow = crows[i];
+
+        if (!crow.hit) {
+            // --- Alive crow logic ---
+            crow.x -= crowSpeed;
+
+            // Optional: vertical chasing toward squirrel
+            const dy = squirrel.y - crow.y;
+            crow.y += dy * 0.01;
+
+            // TIGHTER HITBOX for the crow
+            const crowHitbox = {
+                x: crow.x + 15,      // shrink from left
+                y: crow.y + 10,      // shrink from top (wings/head)
+                width: crow.width - 30,   // reduce width by 30px total
+                height: crow.height - 20  // reduce height by 20px total
+            };
+
+            // Collision with squirrel → game over
+            if (isColliding(squirrel, crowHitbox)) {
+                totalScore += 25;       // cancel out the 25 handleDeath will subtract
+                totalScore = Math.max(0, totalScore - 15);     // apply the correct 15 penalty
+                handleDeath();
+                continue;
+            }
+
+            // Remove if offscreen
+            if (crow.x + crow.width < 0) {
+                crows.splice(i, 1);
+            }
+        } else {
+            // --- Hit crow logic (falling upside down) ---
+            crow.y += crow.fallSpeed;
+            crow.fallSpeed += 0.15;
+
+            // Remove if offscreen
+            if (crow.y > canvas.height) {
+                crows.splice(i, 1);
+            }
+        }
+    }
+}
+
+function updateCrowSettings() {
+  // Each "cycle" of 4 levels repeats with increasing difficulty
+  // Level 1 = no crows
+  // Level 2 = crows at base speed
+  // Level 3 = crows faster
+  // Level 4 = crows more often
+  // Level 5 = crows in pairs
+  // Then repeats with cumulative speed/frequency increases
+
+  if (level === 1) {
+    crowsPerSpawn = 0;
+    crowSpeed = baseCrowSpeed;
+    crowSpawnInterval = baseCrowSpawnInterval;
+    return;
+  }
+
+  // Which cycle are we in (0-indexed)
+  // Level 2-5 = cycle 0, Level 6-9 = cycle 1, etc.
+  const cycleLevel = level - 2; // level 2 becomes 0
+  const cycle = Math.floor(cycleLevel / 4);
+  const positionInCycle = cycleLevel % 4;
+
+  // Base values that increase each cycle
+  const cycleSpeedBoost = cycle * 0.5;
+  const cycleIntervalReduction = cycle * 0.85; // multiplier gets smaller each cycle
+
+  switch (positionInCycle) {
+    case 0: // Levels 2, 6, 10... — crows appear at increasing base speed
+      crowsPerSpawn = 1 + cycle;
+      crowSpeed = baseCrowSpeed + cycleSpeedBoost;
+      crowSpawnInterval = baseCrowSpawnInterval * Math.pow(cycleIntervalReduction || 1, cycle);
+      break;
+
+    case 1: // Levels 3, 7, 11... — crows fly faster
+      crowsPerSpawn = 1 + cycle;
+      crowSpeed = baseCrowSpeed + cycleSpeedBoost + 1;
+      crowSpawnInterval = baseCrowSpawnInterval * Math.pow(cycleIntervalReduction || 1, cycle);
+      break;
+
+    case 2: // Levels 4, 8, 12... — crows appear more often
+      crowsPerSpawn = 1 + cycle;
+      crowSpeed = baseCrowSpeed + cycleSpeedBoost + 1;
+      crowSpawnInterval = baseCrowSpawnInterval * Math.pow(0.75, cycle + 1);
+      break;
+
+    case 3: // Levels 5, 9, 13... — crows in pairs (extra crow per spawn)
+      crowsPerSpawn = 2 + cycle;
+      crowSpeed = baseCrowSpeed + cycleSpeedBoost + 1;
+      crowSpawnInterval = baseCrowSpawnInterval * Math.pow(0.75, cycle + 1);
+      break;
+  }
+
+  // Hard floor so interval never gets absurdly low
+  crowSpawnInterval = Math.max(crowSpawnInterval, 120);
+}
+
+function handleDeath() {
+  lives--;
+  totalScore = Math.max(0, totalScore - 25);
+
+  if (lives <= 0) {
+    gameOver = true;
+    inBossLevel = false;
+  } else if (inBossLevel) {
+    restartBossLevel();
+  } else {
+    resetLevel();
+  }
+}
+
+function shootNut() {
+    totalScore = Math.max(0, totalScore - 5);
+    thrownNuts.push({
+        x: squirrel.x + squirrel.width, // start at squirrel front
+        y: squirrel.y + squirrel.height / 2 - thrownNutSize / 2, // center vertically
+        width: thrownNutSize,
+        height: thrownNutSize
+    });
+}
+
+function randomColor() {
+  const colors = ["#006400", "#228B22", "#8B0000", "#FF4500", "#FFD700", "#000080"];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function setupOwlTextPages() {
+  const fullText = [
+    "Congratulations, Fibonacci. Welcome to the forest!",
+    "",
+    "I'm Origin the Owl, and I will be helping you learn about Inverse Functions today. Let's get started.",
+    "",
+    "Inverse functions are functions which reverse or “undo” another function. To write the inverse of the function f, we use the notation 𝑓⁻¹."
+  ];
+
+  owlTextPages = [];
+  let currentPage = [];
+
+  for (let line of fullText) {
+    if (currentPage.length >= 3) {
+      owlTextPages.push(currentPage);
+      currentPage = [];
+    }
+    currentPage.push(line);
+  }
+
+  if (currentPage.length > 0) {
+    owlTextPages.push(currentPage);
+  }
+
+  owlCurrentPage = 0;
+}
+
+function completeLevelUp() {
+  owlCompletedForLevel = true;
+  treeSpawningEnabled = true;
+  treeSpawnTimer = 0;
+  nextTreeIn = getRandomTreeInterval();
+
+  checkpoint = {
+    nuts: totalNutsCollected,
+    level: level,
+    nutsNeeded: nutsNeededForOwl,
+  };
+
+  level++;
+  updateCrowSettings();
+  nutsNeededForOwl = totalNutsCollected + 5;
+
+  owlActive = false;
+  owlTree = null;
+  owlCompletedForLevel = false;
+
+  if (level > bossLevelUnlocksAfter) {
+    enterBossLevel();
+  }
+
+  totalScore += 200;
+
+  message = "Level Up!";
+  messageTimer = 120;
+}
+
+function checkAnswer(selectedIndex) {
+  if (!currentQuestion) return;
+
+  if (selectedIndex === currentQuestion.correctIndex) {
+    completeLevelUp();
+  } else {
+    totalScore = Math.max(0, totalScore - 50);
+    message = "Incorrect! Starting level over.";
+    messageTimer = 120;
+    resetLevel();
+  }
+
+  showingQuestion = false;
+  currentQuestion = null;
+  isPaused = false;
+}
+
+function enterBonusLevel() {
+  inBonusLevel = true;
+
+  // Clear everything
+  trees = [];
+  crows = [];
+  thrownNuts = [];
+  nutClusters = [];
+  nuts = [];
+
+  treeSpawningEnabled = false;
+  owlActive = false;
+  owlQueued = false;
+  owlSpawnCountdown = 0;
+
+  bonusNutsSpawnTimer = 0;
+  bonusLevelTimer = 0;
+
+  isPaused = false;
+
+  totalScore += 500;
+
+  message = "BONUS LEVEL! Collect as many nuts as you can!";
+  messageTimer = 180;
+}
+
+function restartBossLevel() {
+  squirrel.y = canvas.height * 0.25;
+  squirrel.velocity = 0;
+
+  thrownNuts = [];
+  nuts = [];
+  nutClusters = [];
+  bossProjectiles = [];
+
+  angryManFrame = 0;
+  angryManFrameTimer = 0;
+
+  for (let i = 0; i < raccoons.length; i++) {
+    raccoons[i].frame = 0;
+    raccoons[i].frameTimer = 0;
+    raccoons[i].throwing = false;
+    raccoons[i].throwTimer = 0;
+    raccoons[i].throwInterval = getRandomThrowInterval();
+  }
+
+  isPaused = false;
+  gameWon = false;
+
+  message = "You died. Restarting boss level.";
+  messageTimer = 180;
+}
+
+function exitBonusLevel() {
+  inBonusLevel = false;
+  bonusLevelTimer = 0;
+
+  const savedNuts = totalNutsCollected;
+  const savedNutAmmo = nutAmmo;
+
+  nuts = [];
+  nutClusters = [];
+  trees = [];
+  crows = [];
+  thrownNuts = [];
+
+  treeSpawningEnabled = true;
+  treeSpawnTimer = 0;
+  nextTreeIn = getRandomTreeInterval();
+  lastTreeObj = null;
+
+  owlTree = null;
+  owlActive = false;
+  owlQueued = false;
+  owlSpawnCountdown = 0;
+  owlCompletedForLevel = false;
+
+  squirrel.y = canvas.height * 0.15;
+  squirrel.velocity = 0;
+
+  currentQuestion = null;
+  showingQuestion = false;
+  isPaused = false;
+
+  totalNutsCollected = savedNuts;
+  nutCount = savedNuts;
+  nutAmmo = savedNutAmmo;
+
+  nutsNeededForOwl = totalNutsCollected + 5;
+
+  message = "Back to the forest!";
+  messageTimer = 180;
+}
+
+function enterBossLevel() {
+  inBossLevel = true;
+
+  // Clear everything
+  trees = [];
+  crows = [];
+  thrownNuts = [];
+  nutClusters = [];
+  nuts = [];
+
+  treeSpawningEnabled = false;
+  owlActive = false;
+  owlQueued = false;
+  owlSpawnCountdown = 0;
+
+  squirrel.y = canvas.height * 0.25;
+  squirrel.velocity = 0;
+
+  isPaused = false;
+
+  message = "BOSS LEVEL!";
+  messageTimer = 180;
+}
+
+function updateBossLevel() {
+  if (gameWon) return;
+
+  // Squirrel physics
+  squirrel.velocity += gravity;
+  squirrel.velocity *= airResistance;
+  squirrel.y += squirrel.velocity;
+
+  // Ceiling collision
+  if (squirrel.y < 0) {
+    squirrel.y = 0;
+    squirrel.velocity = 0;
+  }
+
+  // Hit ground → die
+  if (squirrel.y + squirrel.height > canvas.height - groundHeight) {
+    handleDeath();
+    return;
+  }
+
+  // Animate angry man
+  angryManFrameTimer++;
+  if (angryManFrameTimer >= angryManFrameInterval) {
+    angryManFrameTimer = 0;
+    angryManFrame = (angryManFrame + 1) % angryManImages.length;
+  }
+
+  // Animate raccoons
+  // Update each raccoon independently
+  for (let i = 0; i < raccoons.length; i++) {
+    const rc = raccoons[i];
+
+    // Handle dead raccoon spinning off screen
+    if (rc.dead) {
+      if (rc.spinX !== null) {
+        rc.spinX += rc.spinVelX;
+        rc.spinY += rc.spinVelY;
+        rc.spinAngle += 0.2;
+        rc.spinVelY += 0.1; // gravity
+      }
+      continue;
+    }
+
+    // Handle immunity flash
+    if (rc.immune) {
+      rc.immuneTimer++;
+      rc.flashTimer++;
+      if (rc.immuneTimer >= rc.immuneDuration) {
+        rc.immune = false;
+        rc.immuneTimer = 0;
+        rc.flashTimer = 0;
+      }
+    }
+
+    // Handle healing every 10 seconds
+    rc.healTimer++;
+    if (rc.healTimer >= rc.healInterval) {
+      rc.healTimer = 0;
+      rc.health = Math.min(rc.maxHealth, rc.health + 0);
+    }
+
+    if (rc.throwing) {
+      rc.frameTimer++;
+      if (rc.frameTimer >= rc.frameInterval) {
+        rc.frameTimer = 0;
+        rc.frame++;
+
+        if (rc.frame === 3) {
+          spawnBossProjectile(i);
+        }
+
+        if (rc.frame >= raccoonSets[rc.set].length) {
+          rc.frame = 0;
+          rc.throwing = false;
+          rc.throwTimer = 0;
+          rc.throwInterval = getRandomThrowInterval();
+        }
+      }
+    } else {
+      rc.throwTimer++;
+      if (rc.throwTimer >= rc.throwInterval) {
+        rc.throwing = true;
+        rc.frame = 1;
+        rc.frameTimer = 0;
+      }
+    }
+  }
+
+  // Check thrown nuts vs raccoons
+  updateThrownNutsVsRaccoons();
+
+  updateBossProjectiles();
+  updateThrownNuts();
+}
+
+function spawnBonusNut() {
+  const sizeMultipliers = [1.0, 1.1, 1.2, 1.3, 1.4];
+  const multiplier = sizeMultipliers[Math.floor(Math.random() * sizeMultipliers.length)];
+
+  const size = Math.round(nutSize * multiplier);
+
+  const yMin = canvas.height * 0.6;
+  const yMax = canvas.height - groundHeight - groundTileHeight - size;
+  const y = Math.random() * (yMax - yMin) + yMin;
+
+  nuts.push({
+    x: canvas.width + Math.random() * 200,
+    y: y,
+    size: size,
+    multiplier: multiplier
+  });
+}
+
+function updateBossProjectiles() {
+  for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+    const p = bossProjectiles[i];
+    p.age++;
+
+    if (p.type === "can") {
+      // Straight line, spins
+      p.x += p.velX;
+      p.y += p.velY;
+      p.angle += 0.15;
+    }
+
+    else if (p.type === "apple") {
+      // Looping sine wave pattern, spins
+      p.x += p.velX;
+      p.y += p.velY + Math.sin(p.age * 0.04) * 2;
+      p.angle += 0.12;
+    }
+
+    else if (p.type === "plate") {
+  p.x += p.velX;
+
+  // Normalize progress across screen (right → left)
+  const progress = 1 - (p.x / canvas.width); // 0 → 1
+
+  // Gentle downward glide at first
+  const downward = progress * 1.5;
+
+  // Smooth upward lift near left side
+  const riseStart = 0.3; // when it starts rising
+  let upward = 0;
+
+  if (progress > riseStart) {
+    const t = (progress - riseStart) / (1 - riseStart);
+    upward = t * t * 8.5; // smooth gradual rise
+  }
+
+  p.y += p.velY + downward - upward;
+
+  p.angle += 0.08;
+}
+
+    // Check collision with squirrel
+    const hitbox = {
+      x: p.x - p.width / 2,
+      y: p.y - p.height / 2,
+      width: p.width,
+      height: p.height
+    };
+
+    if (isColliding(squirrel, hitbox)) {
+      bossProjectiles.splice(i, 1);
+      handleDeath();
+      return;
+    }
+
+    // Remove if offscreen
+    if (p.x + p.width < 0 || p.x > canvas.width ||
+        p.y + p.height < 0 || p.y > canvas.height) {
+      bossProjectiles.splice(i, 1);
+    }
+  }
+}
+
+// ------------------
+// DRAW FUNCTIONS
+// ------------------
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ✅ ONLY draw if image is ready
+  if (bgLoaded) {
+  ctx.drawImage(bg, bgX, 0, canvas.width, canvas.height);
+  ctx.drawImage(bg, bgX + canvas.width, 0, canvas.width, canvas.height);
+  }
+
+
+  drawTrees();
+  drawNuts();
+  drawCrowsBehindBushes();  // alive crows
+  drawSquirrel();
+  drawCrowsInFrontOfBushes(); // hit crows
+  // drawTestBoxes();
+  drawThrownNuts();
+  drawGroundBushes();
+  // drawNutClusters();
+
+  //if (showHitboxes) {
+  //trees.forEach(tree => {
+    //if (tree.isDeadTree) {
+      //drawDeadTreeHitboxes(tree);
+    //} else {
+      //drawNormalTreeHitboxes(tree);
+    //}
+  //});
+//}
+
+  if (isPaused && !showingQuestion) {
+    drawPauseMenu();
+  } else if (!gameOver && !showingQuestion && !inBonusLevel) {
+    drawPausePrompt();
+  }
+
+  if (gameOver) {
+    drawGameOver();
+  }
+
+  if (messageTimer > 0) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillRect(0, canvas.height / 3 - 30, canvas.width, 60);
+
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(message, canvas.width / 2, canvas.height / 3);
+    
+    ctx.textAlign = "left";
+    messageTimer--;
+  }
+
+  if (showingQuestion && currentQuestion) {
+
+  // Dark overlay
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+
+  // Question
+  ctx.font = "40px Arial";
+  ctx.fillText(currentQuestion.question, canvas.width / 2, canvas.height / 3);
+
+  // Choices
+  ctx.font = "30px Arial";
+  for (let i = 0; i < currentQuestion.choices.length; i++) {
+    ctx.fillText(
+      (i + 1) + ": " + currentQuestion.choices[i],
+      canvas.width / 2,
+      canvas.height / 2 + i * 50
+    );
+  }
+  }
+}
+
+const groundScale = 0.65; // 👈 adjust this (0.4–0.8 is typical)
+
+let groundTileWidth = 0;
+let groundTileHeight = 0;
+
+function drawGroundBushes() {
+  if (!groundReady) return;
+
+  const tileW = groundTileWidth;
+
+  const startIndex = Math.floor(groundScroll / tileW);
+  const offsetX = -(groundScroll % tileW);
+
+  for (let i = 0; i < groundSegments.length + 2; i++) {
+    const img = groundSegments[(startIndex + i) % groundSegments.length]?.image;
+    if (!img) continue;
+
+    const x = Math.round(offsetX + i * tileW);
+
+    ctx.drawImage(
+      img,
+      x,
+      canvas.height - groundTileHeight,
+      tileW,
+      groundTileHeight
+    );
+  }
+}
+
+function drawPausePrompt() {
+  pauseFlashTimer++;
+  if (pauseFlashTimer >= flashInterval) {
+    pauseFlashTimer = 0;
+    pauseFlashVisible = !pauseFlashVisible;
+  }
+
+  if (pauseFlashVisible) {
+    ctx.fillStyle = "white";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText("Press P to Pause", canvas.width / 2, canvas.height - 20);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawPauseMenu() {
+  // Transparent dark overlay over the whole screen
+  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Box dimensions
+  const boxWidth = 400;
+  const boxHeight = 300;
+  const boxX = canvas.width / 2 - boxWidth / 2;
+  const boxY = canvas.height / 2 - boxHeight / 2;
+  const cornerRadius = 20;
+
+  // Draw rounded dark box
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Optional border
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Title
+  ctx.fillStyle = "white";
+  ctx.font = "bold 28px Arial";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "black";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText("GAME CONTROLS", canvas.width / 2, boxY + 60);
+
+  // Controls
+  ctx.font = "bold 24px Arial";
+  ctx.fillText("SPACE = Flap", canvas.width / 2, boxY + 110);
+  ctx.fillText("F = Throw Nuts", canvas.width / 2, boxY + 150);
+
+  // Flashing resume message
+  pauseMenuFlashTimer++;
+  if (pauseMenuFlashTimer >= flashInterval) {
+    pauseMenuFlashTimer = 0;
+    pauseMenuFlashVisible = !pauseMenuFlashVisible;
+  }
+
+  if (pauseMenuFlashVisible) {
+    ctx.font = "bold 24px Arial";
+    ctx.fillText("Press P to Resume", canvas.width / 2, boxY + boxHeight - 30);
+  }
+
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.textAlign = "left";
+}
+
+function drawStartPage() {
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (startPageLoaded) {
+    // Scale image to screen height, maintain aspect ratio
+    const scale = canvas.height / startPageImage.naturalHeight;
+    const drawWidth = startPageImage.naturalWidth * scale;
+    const drawX = (canvas.width - drawWidth) / 2;
+
+    ctx.drawImage(startPageImage, drawX, 0, drawWidth, canvas.height);
+  }
+
+  // Flashing text
+  flashTimer++;
+  if (flashTimer >= flashInterval) {
+    flashTimer = 0;
+    flashVisible = !flashVisible;
+  }
+
+  if (flashVisible) {
+    ctx.fillStyle = "white";
+    ctx.font = "bold 36px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText("Press C to Start", canvas.width / 2, canvas.height * 0.9);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawBossLevel() {
+  // Static background — no scroll
+  if (bgLoaded) {
+    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+  }
+
+  const groundY = canvas.height - groundHeight;
+
+  // --- Pine tree on far right, full height ---
+  if (bossPineTreeLoaded) {
+    const pineWidth = bossPineTreeImage.naturalWidth *
+      (canvas.height / bossPineTreeImage.naturalHeight);
+    ctx.drawImage(
+      bossPineTreeImage,
+      canvas.width - pineWidth,
+      0,
+      pineWidth,
+      canvas.height
+    );
+  }
+
+  // --- Raccoons on pine tree branches ---
+  if (raccoonSetsLoaded > 0 && bossPineTreeLoaded) {
+    const pineWidth = bossPineTreeImage.naturalWidth *
+      (canvas.height / bossPineTreeImage.naturalHeight);
+    const pineX = canvas.width - pineWidth;
+
+    const raccoonHeight = 60;
+    const pineScale = canvas.height / bossPineTreeImage.naturalHeight;
+    const rightOffsets = [20, 50, 90];
+
+    for (let i = 0; i < raccoons.length; i++) {
+      const rc = raccoons[i];
+      const imgSet = raccoonSets[rc.set];
+      const currentImg = imgSet[Math.min(rc.frame, imgSet.length - 1)];
+
+      if (!currentImg || !currentImg.complete || currentImg.naturalWidth === 0) continue;
+
+      const raccoonWidth = currentImg.naturalWidth *
+        (raccoonHeight / currentImg.naturalHeight);
+
+      const branchYFromBottom = branchOffsets[i] * pineScale;
+      const raccoonY = canvas.height - branchYFromBottom - raccoonHeight;
+      const raccoonX = pineX + pineWidth / 2 - raccoonWidth / 2 + rightOffsets[i];
+
+      // Handle dead raccoon spinning off screen
+      if (rc.dead && rc.spinX !== null) {
+        ctx.save();
+        ctx.translate(rc.spinX, rc.spinY);
+        ctx.rotate(rc.spinAngle);
+        ctx.drawImage(currentImg, -raccoonWidth / 2, -raccoonHeight / 2, raccoonWidth, raccoonHeight);
+        ctx.restore();
+        continue;
+      }
+
+      // Flash when immune — skip every other 5 frames
+      if (rc.immune && Math.floor(rc.flashTimer / 5) % 2 === 0) continue;
+
+      ctx.drawImage(currentImg, raccoonX, raccoonY, raccoonWidth, raccoonHeight);
+
+      // Draw health bar
+      drawRaccoonHealthBar(i, raccoonX, raccoonY, raccoonWidth);
+    }
+  }
+
+  // --- Angry man just to the left of pine tree ---
+  if (angryManLoaded > 0) {
+    const currentAngryMan = angryManImages[angryManFrame];
+    if (currentAngryMan.complete && currentAngryMan.naturalWidth > 0) {
+      const angryManHeight = 120;
+      const angryManWidth = currentAngryMan.naturalWidth *
+        (angryManHeight / currentAngryMan.naturalHeight);
+
+      const pineWidth = bossPineTreeLoaded
+        ? bossPineTreeImage.naturalWidth * (canvas.height / bossPineTreeImage.naturalHeight)
+        : 100;
+
+      const angryManX = canvas.width - pineWidth - angryManWidth - 10;
+      const angryManY = groundY - angryManHeight;
+
+      ctx.drawImage(currentAngryMan, angryManX, angryManY, angryManWidth, angryManHeight);
+    }
+  }
+
+  // --- Speech bubble above angry man ---
+  if (angryManLoaded > 0) {
+    const currentAngryMan = angryManImages[angryManFrame];
+    if (currentAngryMan.complete && currentAngryMan.naturalWidth > 0) {
+      const angryManHeight = 120;
+      const angryManWidth = currentAngryMan.naturalWidth *
+        (angryManHeight / currentAngryMan.naturalHeight);
+
+      const pineWidth = bossPineTreeLoaded
+        ? bossPineTreeImage.naturalWidth * (canvas.height / bossPineTreeImage.naturalHeight)
+        : 100;
+
+      const angryManX = canvas.width - pineWidth - angryManWidth - 10;
+      const angryManY = groundY - angryManHeight;
+
+      // Speech bubble dimensions
+      const bubblePadding = 12;
+      const bubbleRadius = 12;
+
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "left";
+
+      // Word wrap the speech text
+      const speechText = "Bring back my supplies you dagnab critters!";
+      const maxBubbleWidth = 180;
+      const speechLineHeight = 22;
+      const speechWords = speechText.split(" ");
+      const speechLines = [];
+      let currentLine = "";
+
+      for (let n = 0; n < speechWords.length; n++) {
+        const testLine = currentLine + speechWords[n] + " ";
+        if (ctx.measureText(testLine).width > maxBubbleWidth - bubblePadding * 2 && n > 0) {
+          speechLines.push(currentLine.trim());
+          currentLine = speechWords[n] + " ";
+        } else {
+          currentLine = testLine;
+        }
+      }
+      speechLines.push(currentLine.trim());
+
+      const bubbleWidth = maxBubbleWidth;
+      const bubbleHeight = speechLines.length * speechLineHeight + bubblePadding * 2;
+
+      // Position bubble to the right of angry man
+      const bubbleX = angryManX + angryManWidth + 50;
+      const bubbleY = angryManY - bubbleHeight + 70;
+
+      // Draw rounded bubble box with pointer on left side
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 2;
+
+      const pointerTipX = angryManX + angryManWidth / 2 + 20;
+      const pointerTipY = angryManY + 30;
+      const pointerBaseTop = bubbleY + 15;
+      const pointerBaseBottom = bubbleY + 40;
+
+      ctx.beginPath();
+
+      // Top edge
+      ctx.moveTo(bubbleX + bubbleRadius, bubbleY);
+      ctx.lineTo(bubbleX + bubbleWidth - bubbleRadius, bubbleY);
+
+      // Top right corner
+      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + bubbleRadius);
+
+      // Right edge
+      ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - bubbleRadius);
+
+      // Bottom right corner
+      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - bubbleRadius, bubbleY + bubbleHeight);
+
+      // Bottom edge
+      ctx.lineTo(bubbleX + bubbleRadius, bubbleY + bubbleHeight);
+
+      // Bottom left corner
+      ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - bubbleRadius);
+
+      // Left edge bottom to pointer base bottom
+      ctx.lineTo(bubbleX, pointerBaseBottom);
+
+      // Pointer tip
+      ctx.lineTo(pointerTipX, pointerTipY);
+
+      // Pointer base top back to left edge
+      ctx.lineTo(bubbleX, pointerBaseTop);
+
+      // Left edge pointer base top to top left corner
+      ctx.lineTo(bubbleX, bubbleY + bubbleRadius);
+
+      // Top left corner
+      ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + bubbleRadius, bubbleY);
+
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw text inside bubble
+      ctx.fillStyle = "#222222";
+      ctx.font = "bold 15px Arial";
+      ctx.textAlign = "left";
+
+      for (let i = 0; i < speechLines.length; i++) {
+        ctx.fillText(
+          speechLines[i],
+          bubbleX + bubblePadding,
+          bubbleY + bubblePadding + (i + 1) * speechLineHeight - 5
+        );
+      }
+
+      ctx.textAlign = "left";
+    }
+  }
+
+  // --- Tent to the left of angry man ---
+  if (bossTentLoaded) {
+    const tentHeight = 150;
+    const tentWidth = bossTentImage.naturalWidth *
+      (tentHeight / bossTentImage.naturalHeight);
+
+    const pineWidth = bossPineTreeLoaded
+      ? bossPineTreeImage.naturalWidth * (canvas.height / bossPineTreeImage.naturalHeight)
+      : 100;
+
+    const angryManWidth = angryManLoaded > 0 && angryManImages[0].complete
+      ? angryManImages[0].naturalWidth * (120 / angryManImages[0].naturalHeight)
+      : 80;
+
+    const tentX = canvas.width - pineWidth - angryManWidth - tentWidth - 20;
+    const tentY = groundY - tentHeight;
+
+    ctx.drawImage(bossTentImage, tentX, tentY, tentWidth, tentHeight);
+  }
+
+  drawBossProjectiles();
+
+  // Draw squirrel
+  drawSquirrel();
+
+  // Draw thrown nuts
+  drawThrownNuts();
+
+  // Draw UI
+  drawNuts();
+
+  // Draw message
+  // Draw message
+  if (messageTimer > 0) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillRect(0, canvas.height / 3 - 30, canvas.width, 60);
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(message, canvas.width / 2, canvas.height / 3);
+    ctx.textAlign = "left";
+    messageTimer--;
+  }
+
+  if (gameWon) {
+    drawGameWon();
+  }
+
+  if (gameOver) {
+    drawGameOver();
+  }
+
+  if (isPaused) {
+    drawPauseMenu();
+  } else if (!gameOver) {
+    drawPausePrompt();
+  }
+}
+
+function drawGameWon() {
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "gold";
+  ctx.font = "bold 60px Arial";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "black";
+  ctx.shadowBlur = 8;
+  ctx.fillText("YOU WIN!", canvas.width / 2, canvas.height / 2 - 40);
+
+  ctx.fillStyle = "white";
+  ctx.font = "bold 30px Arial";
+  ctx.fillText("Final Score: " + totalScore, canvas.width / 2, canvas.height / 2 + 20);
+  ctx.fillText("Refresh the browser to play again", canvas.width / 2, canvas.height / 2 + 70);
+
+  ctx.shadowBlur = 0;
+  ctx.textAlign = "left";
+}
+
+function drawExplanationPage() {
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Rounded box dimensions
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  // Draw rounded cream box
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Optional border
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Dividing line between left and right halves
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: sumdogtalk.gif ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  if (sumdogTalkLoaded > 0) {
+    // Advance frame
+    sumdogTalkFrameTimer++;
+    if (sumdogTalkFrameTimer >= sumdogTalkFrameInterval) {
+      sumdogTalkFrameTimer = 0;
+      sumdogTalkFrame = (sumdogTalkFrame + 1) % sumdogTalkImages.length;
+    }
+
+    const currentImg = sumdogTalkImages[sumdogTalkFrame];
+
+    if (currentImg.complete && currentImg.naturalWidth > 0) {
+      const maxImgWidth = boxWidth / 2 - 60;
+      const maxImgHeight = boxHeight - 80;
+      const imgScale = Math.min(
+        maxImgWidth / currentImg.naturalWidth,
+        maxImgHeight / currentImg.naturalHeight
+      );
+      const imgDrawWidth = currentImg.naturalWidth * imgScale;
+      const imgDrawHeight = currentImg.naturalHeight * imgScale;
+      const imgX = leftCenterX - imgDrawWidth / 2;
+      const imgY = leftCenterY - imgDrawHeight / 2;
+
+      ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+    }
+  }
+
+  // --- RIGHT HALF: text ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  // Word wrap function
+  function wrapText(text, x, y, maxWidth, lineHeight) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+    return currentY;
+  }
+
+  const introText = "Hi, my name is Sum Dog and welcome to one of my many adventures. Today, we won't learn math...we will just play the game, but, before we get started, I want you to introduce you to someone...";
+  wrapText(introText, rightX, textStartY, rightWidth, lineHeight);
+
+  // Flashing "Press C to Continue"
+  explanationFlashTimer++;
+  if (explanationFlashTimer >= flashInterval) {
+    explanationFlashTimer = 0;
+    explanationFlashVisible = !explanationFlashVisible;
+  }
+
+  if (explanationFlashVisible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawExplanationPage2() {
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Rounded box dimensions
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  // Draw rounded cream box
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Dividing line
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: sumdogandfibtalk.gif ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  if (sumdogFibTalkLoaded > 0) {
+    sumdogFibTalkFrameTimer++;
+    if (sumdogFibTalkFrameTimer >= sumdogFibTalkFrameInterval) {
+      sumdogFibTalkFrameTimer = 0;
+      sumdogFibTalkFrame = (sumdogFibTalkFrame + 1) % sumdogFibTalkImages.length;
+    }
+
+    const currentImg = sumdogFibTalkImages[sumdogFibTalkFrame];
+
+    if (currentImg.complete && currentImg.naturalWidth > 0) {
+      const maxImgWidth = boxWidth / 2 - 60;
+      const maxImgHeight = boxHeight - 80;
+      const imgScale = Math.min(
+        maxImgWidth / currentImg.naturalWidth,
+        maxImgHeight / currentImg.naturalHeight
+      );
+      const imgDrawWidth = currentImg.naturalWidth * imgScale;
+      const imgDrawHeight = currentImg.naturalHeight * imgScale;
+      const imgX = leftCenterX - imgDrawWidth / 2;
+      const imgY = leftCenterY - imgDrawHeight / 2;
+
+      ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+    }
+  }
+
+  // --- RIGHT HALF: text ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  // Max Y before it hits the flashing space bar message
+const maxTextY = boxY + boxHeight - 100;
+
+const storyText = "Meet my friend, Fibonacci the Flying Squirrel. I just call him \"Fib\". Fib is on a mission to go to the center of the forest and take out a gaze of 3 sinister raccoons known as Root, Radical, and Rhombus. They are terrorizing the forest with their campsite-wrecking menace. Help Fib get through the forest and stop these fiends. You will fly through the forest, collecting nuts and meet the academic protector of the forest, Origin the Owl...But watch out for those pesky crows who are allied with the racoons.";
+const result1 = wrapText(storyText, rightX, textStartY, rightWidth, lineHeight, maxTextY);
+
+const paragraph2 = "On your journey with Fib, avoid crashing into the trees or ground by keeping him in flight using the \"SPACE\" key. Take out the crows by collecting nuts and throwing them at the crows by using the \"F\" key. Also, check out behind the bushes. I've heard there are some clusters of nuts that have gathered there. If you need a break, press the \"P\" key to pause the game.";
+const result2 = wrapText(paragraph2, rightX, result1.lastY + lineHeight * 1.5, rightWidth, lineHeight, maxTextY);
+
+// Store overflow for page 3 to pick up
+window.page2Overflow = [];
+if (result1.overflow) window.page2Overflow.push(result1.overflow);
+if (result2.overflow) window.page2Overflow.push(result2.overflow);
+
+  // Flashing "Press C to Continue"
+  explanationFlash2Timer++;
+  if (explanationFlash2Timer >= flashInterval) {
+    explanationFlash2Timer = 0;
+    explanationFlash2Visible = !explanationFlash2Visible;
+  }
+
+  if (explanationFlash2Visible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawExplanationPage3() {
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: image ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  if (sumdogFibTalkLoaded > 0) {
+    sumdogFibTalkFrameTimer++;
+    if (sumdogFibTalkFrameTimer >= sumdogFibTalkFrameInterval) {
+      sumdogFibTalkFrameTimer = 0;
+      sumdogFibTalkFrame = (sumdogFibTalkFrame + 1) % sumdogFibTalkImages.length;
+    }
+
+    const currentImg = sumdogFibTalkImages[sumdogFibTalkFrame];
+
+    if (currentImg.complete && currentImg.naturalWidth > 0) {
+      const maxImgWidth = boxWidth / 2 - 60;
+      const maxImgHeight = boxHeight - 80;
+      const imgScale = Math.min(
+        maxImgWidth / currentImg.naturalWidth,
+        maxImgHeight / currentImg.naturalHeight
+      );
+      const imgDrawWidth = currentImg.naturalWidth * imgScale;
+      const imgDrawHeight = currentImg.naturalHeight * imgScale;
+      const imgX = leftCenterX - imgDrawWidth / 2;
+      const imgY = leftCenterY - imgDrawHeight / 2;
+
+      ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+    }
+  }
+
+  // --- RIGHT HALF: text ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+    return currentY;
+  }
+
+  const maxTextY = boxY + boxHeight - 100;
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  let currentY = textStartY;
+
+  if (window.page2Overflow && window.page2Overflow.length > 0) {
+    for (let i = 0; i < window.page2Overflow.length; i++) {
+      const result = wrapText(window.page2Overflow[i], rightX, currentY, rightWidth, lineHeight, maxTextY);
+      currentY = result.lastY + lineHeight * 1.5;
+    }
+  }
+
+  window.page3Overflow = [];
+
+  const page3Text = "Good Luck!";
+  const page3Result = wrapText(page3Text, rightX, currentY, rightWidth, lineHeight, maxTextY);
+  if (page3Result.overflow) window.page3Overflow.push(page3Result.overflow);
+
+  // Flashing "Press C to Continue"
+  explanationFlash3Timer++;
+  if (explanationFlash3Timer >= flashInterval) {
+    explanationFlash3Timer = 0;
+    explanationFlash3Visible = !explanationFlash3Visible;
+  }
+
+  if (explanationFlash3Visible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawExplanationPage4() {
+  // Only show if there is overflow from page 3
+  if (!window.page3Overflow || window.page3Overflow.length === 0) {
+    onExplanationPage4 = false;
+    resetGame(true);
+    return;
+  }
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: reuse same gif as pages 2 and 3 ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  if (sumdogFibTalkLoaded > 0) {
+    sumdogFibTalkFrameTimer++;
+    if (sumdogFibTalkFrameTimer >= sumdogFibTalkFrameInterval) {
+      sumdogFibTalkFrameTimer = 0;
+      sumdogFibTalkFrame = (sumdogFibTalkFrame + 1) % sumdogFibTalkImages.length;
+    }
+
+    const currentImg = sumdogFibTalkImages[sumdogFibTalkFrame];
+
+    if (currentImg.complete && currentImg.naturalWidth > 0) {
+      const maxImgWidth = boxWidth / 2 - 60;
+      const maxImgHeight = boxHeight - 80;
+      const imgScale = Math.min(
+        maxImgWidth / currentImg.naturalWidth,
+        maxImgHeight / currentImg.naturalHeight
+      );
+      const imgDrawWidth = currentImg.naturalWidth * imgScale;
+      const imgDrawHeight = currentImg.naturalHeight * imgScale;
+      const imgX = leftCenterX - imgDrawWidth / 2;
+      const imgY = leftCenterY - imgDrawHeight / 2;
+
+      ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+    }
+  }
+
+  // --- RIGHT HALF: overflow text from page 3 ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+  const maxTextY = boxY + boxHeight - 100;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  let currentY = textStartY;
+
+  for (let i = 0; i < window.page3Overflow.length; i++) {
+    const result = wrapText(window.page3Overflow[i], rightX, currentY, rightWidth, lineHeight, maxTextY);
+    currentY = result.lastY + lineHeight * 1.5;
+  }
+
+  // Flashing "Press C to Continue"
+  explanationFlash4Timer++;
+  if (explanationFlash4Timer >= flashInterval) {
+    explanationFlash4Timer = 0;
+    explanationFlash4Visible = !explanationFlash4Visible;
+  }
+
+  if (explanationFlash4Visible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+
+function drawLevel1OwlPage() {
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Rounded box dimensions
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  // Draw rounded cream box
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Dividing line
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: sumdogandfibtalk.gif ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  owlTalkTimer++;
+if (owlTalkTimer >= 20) {
+  owlTalkTimer = 0;
+  owlTalkFrame = (owlTalkFrame + 1) % 2;
+}
+
+const currentImg = owlTalkFrame === 0 ? owlTalk1 : owlTalk2;
+
+if (currentImg.complete && currentImg.naturalWidth > 0) {
+  const maxImgWidth = boxWidth / 2 - 60;
+  const maxImgHeight = boxHeight - 80;
+  const imgScale = Math.min(
+    maxImgWidth / currentImg.naturalWidth,
+    maxImgHeight / currentImg.naturalHeight
+  );
+  const imgDrawWidth = currentImg.naturalWidth * imgScale;
+  const imgDrawHeight = currentImg.naturalHeight * imgScale;
+  const imgX = leftCenterX - imgDrawWidth / 2;
+  const imgY = leftCenterY - imgDrawHeight / 2;
+
+  ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+}
+
+  // --- RIGHT HALF: text ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  // Max Y before it hits the flashing space bar message
+const maxTextY = boxY + boxHeight - 100;
+
+const storyText = "Congratulations, Fibonacci. Welcome to the forest!";
+const result1 = wrapText(storyText, rightX, textStartY, rightWidth, lineHeight, maxTextY);
+
+const paragraph2 = "I'm Origin the Owl, and normally I would be helping you learn about a math topic today. However, Mr. Carrell wasn't able to get that completed, so this is just a filler. Keep playing the game by pressing C.";
+const result2 = wrapText(paragraph2, rightX, result1.lastY + lineHeight * 1.5, rightWidth, lineHeight, maxTextY);
+
+// Store overflow for owl page 2 to pick up
+window.owlPage1Overflow = [];
+if (result1.overflow) window.owlPage1Overflow.push(result1.overflow);
+if (result2.overflow) window.owlPage1Overflow.push(result2.overflow);
+
+  // Flashing "Press C to Continue"
+  explanationFlash2Timer++;
+  if (explanationFlash2Timer >= flashInterval) {
+    explanationFlash2Timer = 0;
+    explanationFlash2Visible = !explanationFlash2Visible;
+  }
+
+  if (explanationFlash2Visible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue or B to go Back", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawLevel1OwlPage2() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: owl image ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  owlTalkTimer++;
+  if (owlTalkTimer >= 20) {
+    owlTalkTimer = 0;
+    owlTalkFrame = (owlTalkFrame + 1) % 2;
+  }
+
+  const currentImg = owlTalkFrame === 0 ? owlTalk1 : owlTalk2;
+
+  if (currentImg.complete && currentImg.naturalWidth > 0) {
+    const maxImgWidth = boxWidth / 2 - 60;
+    const maxImgHeight = boxHeight - 80;
+    const imgScale = Math.min(
+      maxImgWidth / currentImg.naturalWidth,
+      maxImgHeight / currentImg.naturalHeight
+    );
+    const imgDrawWidth = currentImg.naturalWidth * imgScale;
+    const imgDrawHeight = currentImg.naturalHeight * imgScale;
+    const imgX = leftCenterX - imgDrawWidth / 2;
+    const imgY = leftCenterY - imgDrawHeight / 2;
+    ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+  }
+
+  // --- RIGHT HALF: overflow text from owl page 1 ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+  const maxTextY = boxY + boxHeight - 100;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  window.owlPage2Overflow = [];
+  let currentY = textStartY;
+
+  if (window.owlPage1Overflow && window.owlPage1Overflow.length > 0) {
+    for (let i = 0; i < window.owlPage1Overflow.length; i++) {
+      const result = wrapText(window.owlPage1Overflow[i], rightX, currentY, rightWidth, lineHeight, maxTextY);
+      if (result.overflow) window.owlPage2Overflow.push(result.overflow);
+      currentY = result.lastY + lineHeight * 1.5;
+    }
+  }
+
+  // Flashing continue prompt
+  owlPage2FlashTimer++;
+  if (owlPage2FlashTimer >= flashInterval) {
+    owlPage2FlashTimer = 0;
+    owlPage2FlashVisible = !owlPage2FlashVisible;
+  }
+
+  if (owlPage2FlashVisible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue or B to go Back", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawLevel1OwlPage3() {
+  // Skip this page if there is no overflow
+  if (!window.owlPage2Overflow || window.owlPage2Overflow.length === 0) {
+    onLevel1OwlPage3 = false;
+    isPaused = false;
+    showingQuestion = true;
+    currentQuestion = getQuestion();
+    return;
+  }
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const boxPadding = 60;
+  const boxX = boxPadding;
+  const boxY = boxPadding;
+  const boxWidth = canvas.width - boxPadding * 2;
+  const boxHeight = canvas.height - boxPadding * 2;
+  const cornerRadius = 30;
+
+  ctx.fillStyle = "#F5F0E1";
+  ctx.beginPath();
+  ctx.moveTo(boxX + cornerRadius, boxY);
+  ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius);
+  ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+  ctx.quadraticCurveTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight);
+  ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+  ctx.quadraticCurveTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius);
+  ctx.lineTo(boxX, boxY + cornerRadius);
+  ctx.quadraticCurveTo(boxX, boxY, boxX + cornerRadius, boxY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  const midX = boxX + boxWidth / 2;
+  ctx.strokeStyle = "#C8B89A";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, boxY + 20);
+  ctx.lineTo(midX, boxY + boxHeight - 20);
+  ctx.stroke();
+
+  // --- LEFT HALF: owl image ---
+  const leftCenterX = boxX + boxWidth / 4;
+  const leftCenterY = boxY + boxHeight / 2;
+
+  owlTalkTimer++;
+  if (owlTalkTimer >= 20) {
+    owlTalkTimer = 0;
+    owlTalkFrame = (owlTalkFrame + 1) % 2;
+  }
+
+  const currentImg = owlTalkFrame === 0 ? owlTalk1 : owlTalk2;
+
+  if (currentImg.complete && currentImg.naturalWidth > 0) {
+    const maxImgWidth = boxWidth / 2 - 60;
+    const maxImgHeight = boxHeight - 80;
+    const imgScale = Math.min(
+      maxImgWidth / currentImg.naturalWidth,
+      maxImgHeight / currentImg.naturalHeight
+    );
+    const imgDrawWidth = currentImg.naturalWidth * imgScale;
+    const imgDrawHeight = currentImg.naturalHeight * imgScale;
+    const imgX = leftCenterX - imgDrawWidth / 2;
+    const imgY = leftCenterY - imgDrawHeight / 2;
+    ctx.drawImage(currentImg, imgX, imgY, imgDrawWidth, imgDrawHeight);
+  }
+
+  // --- RIGHT HALF: overflow from page 2 ---
+  const rightX = midX + 30;
+  const rightWidth = boxWidth / 2 - 60;
+  const textStartY = boxY + 80;
+  const lineHeight = 36;
+  const maxTextY = boxY + boxHeight - 100;
+
+  ctx.fillStyle = "#2C1A0E";
+  ctx.font = "22px Arial";
+  ctx.textAlign = "left";
+
+  function wrapText(text, x, y, maxWidth, lineHeight, maxY) {
+    const words = text.split(" ");
+    let line = "";
+    let currentY = y;
+    let overflowWords = [];
+    let overflowing = false;
+
+    for (let n = 0; n < words.length; n++) {
+      if (overflowing) {
+        overflowWords.push(words[n]);
+        continue;
+      }
+      const testLine = line + words[n] + " ";
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && n > 0) {
+        if (maxY && currentY + lineHeight > maxY) {
+          overflowing = true;
+          overflowWords.push(words[n]);
+          continue;
+        }
+        ctx.fillText(line, x, currentY);
+        line = words[n] + " ";
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    if (!overflowing && maxY && currentY + lineHeight <= maxY) {
+      ctx.fillText(line, x, currentY);
+    } else if (!overflowing) {
+      overflowWords = line.trim().split(" ");
+    } else {
+      ctx.fillText(line, x, currentY);
+    }
+    return {
+      lastY: currentY,
+      overflow: overflowWords.length > 0 ? overflowWords.join(" ") : null
+    };
+  }
+
+  let currentY = textStartY;
+
+  for (let i = 0; i < window.owlPage2Overflow.length; i++) {
+    const result = wrapText(window.owlPage2Overflow[i], rightX, currentY, rightWidth, lineHeight, maxTextY);
+    currentY = result.lastY + lineHeight * 1.5;
+  }
+
+  // Flashing continue prompt
+  owlPage3FlashTimer++;
+  if (owlPage3FlashTimer >= flashInterval) {
+    owlPage3FlashTimer = 0;
+    owlPage3FlashVisible = !owlPage3FlashVisible;
+  }
+
+  if (owlPage3FlashVisible) {
+    ctx.fillStyle = "#8B0000";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText("Press C to Continue or B to go Back", midX + boxWidth / 4, boxY + boxHeight - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.textAlign = "left";
+  }
+}
+
+function drawRaccoonHealthBar(raccoonIndex, screenX, screenY, raccoonWidth) {
+  const rc = raccoons[raccoonIndex];
+  if (rc.dead) return;
+
+  const barWidth = 100;
+  const barHeight = 10;
+  const barX = screenX + raccoonWidth / 2 - barWidth / 2;
+  const barY = screenY - 18;
+
+  const healthPercent = rc.health / rc.maxHealth;
+  const fillWidth = barWidth * healthPercent;
+
+  // Black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+
+  // Health color
+  if (healthPercent > 0.5) {
+    ctx.fillStyle = "#00cc00";
+  } else if (healthPercent > 0.25) {
+    ctx.fillStyle = "orange";
+  } else {
+    ctx.fillStyle = "red";
+  }
+
+  ctx.fillRect(barX, barY, fillWidth, barHeight);
+
+  // Border
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
+}
+
+function drawBossProjectiles() {
+  for (let i = 0; i < bossProjectiles.length; i++) {
+    const p = bossProjectiles[i];
+
+    let img = null;
+    if (p.type === "apple" && appleLoaded) img = appleImage;
+    else if (p.type === "can" && canLoaded) img = canImage;
+    else if (p.type === "plate" && plateLoaded) img = plateImage;
+
+    if (!img) continue;
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.drawImage(img, -p.width / 2, -p.height / 2, p.width, p.height);
+    ctx.restore();
+  }
+}
+
+function drawNutClusters() {
+  if (!showHitboxes) return;
+
+  ctx.fillStyle = "red";
+
+  nutClusters.forEach(nut => {
+    if (!nut.collected) {
+      ctx.fillRect(nut.x, nut.y, nut.width, nut.height);
+    }
+  });
+}
+
+// For dead trees only
+function drawDeadTreeHitboxes(tree) {
+  if (!tree.isDeadTree || !tree.hitboxes) return;
+
+  const h = tree.hitboxes;
+  ctx.lineWidth = 2;
+
+  ctx.strokeStyle = "red";
+  ctx.strokeRect(h.leaves.x,    h.leaves.y,    h.leaves.width,    h.leaves.height);
+  ctx.strokeRect(h.lowerTrunk.x, h.lowerTrunk.y, h.lowerTrunk.width, h.lowerTrunk.height);
+
+  ctx.strokeStyle = "yellow";
+  ctx.strokeRect(h.hole.x, h.hole.y, h.hole.width, h.hole.height);
+}
+
+// For normal trees only — handles both rect and triangle types
+function drawNormalTreeHitboxes(tree) {
+  if (tree.isDeadTree || !tree.hitboxes?.leaves) return;
+
+  const leaves = tree.hitboxes.leaves;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "lime";
+
+  if (leaves.type === "rect") {
+    ctx.strokeRect(leaves.x, leaves.y, leaves.width, leaves.height);
+  }
+  else if (leaves.type === "triangle") {
+    ctx.beginPath();
+    ctx.moveTo(leaves.p1.x, leaves.p1.y);
+    ctx.lineTo(leaves.p2.x, leaves.p2.y);
+    ctx.lineTo(leaves.p3.x, leaves.p3.y);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  if (tree.hitboxes.trunk) {
+    ctx.strokeStyle = "red";
+    ctx.strokeRect(
+      tree.hitboxes.trunk.x,
+      tree.hitboxes.trunk.y,
+      tree.hitboxes.trunk.width,
+      tree.hitboxes.trunk.height
+    );
+  }
+}
+
+function drawTestBoxes() {
+  const baseY = canvas.height - groundHeight;
+
+  const heights = [50, 100, 150, 200, 250, 300];
+
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "red";
+
+  heights.forEach((h, i) => {
+    const x = 50 + i * 80; // space them horizontally
+
+    // Draw rectangle (grows upward from ground)
+    ctx.strokeRect(x, baseY - h, 40, h);
+
+    // Label the height
+    ctx.fillText(h + "px", x, baseY - h - 5);
+  });
+}
+
+function drawSquirrel() {
+  const img = squirrelImages[currentFrame];
+
+  if (!img.complete) return;
+
+  ctx.drawImage(
+    img,
+    squirrel.x,
+    squirrel.y,
+    squirrel.width,
+    squirrel.height
+  );
+}
+
+function drawThrownNuts() {
+    if (!thrownNutLoaded || !thrownNutImage.complete) {
+        // Fallback to orange square while image is loading
+        ctx.fillStyle = "orange";
+        thrownNuts.forEach(nut => {
+            ctx.fillRect(nut.x, nut.y, nut.width, nut.height);
+        });
+        return;
+    }
+
+    thrownNuts.forEach(nut => {
+        ctx.drawImage(
+            thrownNutImage,
+            nut.x,
+            nut.y,
+            nut.width,      // 15px as defined earlier
+            nut.height
+        );
+    });
+}
+
+function drawTrees() {
+  trees.forEach(tree => {
+    // Normal trees
+    if (!tree.hasOwl) {
+      const treeTop = canvas.height - groundHeight - tree.height;
+
+      if (tree.image && tree.image.complete) {
+        ctx.drawImage(
+         tree.image,
+         tree.x,
+         treeTop,
+         tree.width,
+         tree.height
+      );
+      } else {
+         // fallback (just in case image hasn't loaded yet)
+         ctx.fillStyle = "#228B22";
+         ctx.fillRect(
+           tree.x,
+           treeTop,
+           tree.width,
+           tree.height
+        );
+       }
+      }
+
+    // 🦉 Owl on pole
+    if (tree.hasOwl && owlLoaded && owlImage.complete) {
+      const scale = 0.4; // adjust this to make the owl bigger/smaller
+
+      const owlDisplayHeight = owlImage.naturalHeight * scale;
+      const owlDisplayWidth = owlImage.naturalWidth * scale;
+
+      const owlX = tree.x + tree.width / 2 - owlDisplayWidth / 2;
+      const owlY = canvas.height - groundHeight - owlDisplayHeight;
+
+      ctx.drawImage(owlImage, owlX, owlY, owlDisplayWidth, owlDisplayHeight);
+      
+      const padding = Math.min(100, owlDisplayWidth / 3);
+
+      tree.owlHitbox = {
+        x: owlX + padding,
+        y: owlY - 200,
+        width: owlDisplayWidth - padding * 2,
+        height: owlDisplayHeight
+      };      
+    } else {
+      // Clean up hitbox if owl is gone
+      if (tree.owlHitbox) delete tree.owlHitbox;
+    }
+  });
+}
+
+function drawNuts() {
+  // Draw the bouncing nuts on screen
+  nuts.forEach(nut => {
+    const bounce = Math.sin(Date.now() / 200) * 5;
+    ctx.drawImage(
+      nutImage,
+      nut.x,
+      nut.y + bounce,
+      nut.size,
+      nut.size
+    );
+  });
+
+  // UI Text - clean and reliable
+  ctx.fillStyle = "white";
+  ctx.font = "bold 24px Arial";
+  ctx.textAlign = "left";
+
+  // Optional shadow for better readability (applied once)
+  ctx.shadowColor = "black";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  ctx.fillText("Nuts Collected: " + nutAmmo, 20, 70);
+  ctx.fillText("Level: " + level, 20, 105);
+  ctx.fillText("Lives: " + lives, 20, 140);
+  ctx.fillText("Score: " + totalScore, 20, 175);
+
+  // Reset shadow so it doesn't affect the rest of the drawing
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+function drawCrowsBehindBushes() {
+  crows.forEach(crow => {
+    if (crow.hit) return; // skip hit crows
+
+    const index = (crowFrame + (crow.flapOffset || 0)) % crowAnimationSequence.length;
+    const frame = crowImages[crowAnimationSequence[index]];
+    if (!frame.complete) return;
+
+    ctx.drawImage(frame, crow.x, crow.y, crow.width, crow.height);
+  });
+}
+
+function drawCrowsInFrontOfBushes() {
+  crows.forEach(crow => {
+    if (!crow.hit) return; // only hit crows
+
+    const frame = crowImages[3];
+    if (!frame.complete) return;
+
+    ctx.save();
+    ctx.translate(crow.x + crow.width / 2, crow.y + crow.height / 2);
+    ctx.rotate(Math.PI);
+    ctx.drawImage(frame, -crow.width/2, -crow.height/2, crow.width, crow.height);
+    ctx.restore();
+  });
+}
+
+function drawGameOver() {
+  ctx.fillStyle = "white";
+  ctx.font = "40px Arial";
+  ctx.fillText("Game Over - Press R to Restart",
+               canvas.width / 2 - 250,
+               canvas.height / 2);
+}
+
+// ------------------
+// COLLISION FUNCTION
+// ------------------
+function isColliding(a, b) {
+  return a.x < b.x + b.width &&
+         a.x + a.width > b.x &&
+         a.y < b.y + b.height &&
+         a.y + a.height > b.y;
+}
+
+// ------------------
+// RESET
+// ------------------
+function resetGame(fullReset = false) {
+
+  // ---------------------------
+  // PLAYER RESET
+  // ---------------------------
+  squirrel.y = canvas.height * 0.15;
+  squirrel.velocity = 0;
+
+  nuts = [];
+  crows = [];
+  thrownNuts = [];
+
+  nutAmmo = 0;
+
+  gameOver = false;
+  isPaused = false;
+  gameWon = false;
+
+  messageTimer = 120;
+
+  // ---------------------------
+  // WORLD RESET (always)
+  // ---------------------------
+  trees = [];
+  treeSpawnTimer = 0;
+  nextTreeIn = getRandomTreeInterval();
+  lastTreeObj = null;
+
+  owlTree = null;
+  owlActive = false;
+  owlQueued = false;
+  owlCompletedForLevel = false;
+
+  treeSpawningEnabled = true;
+
+  lastTreeRightEdge = 0;
+
+  // IMPORTANT: prevents instant re-trigger after reset
+  currentQuestion = null;
+  showingQuestion = false;
+
+  inBonusLevel = false;
+  inBossLevel = false;
+
+  // ---------------------------
+  // FULL RESET (new game)
+  // ---------------------------
+  if (fullReset || !checkpoint) {
+
+    totalNutsCollected = 0;
+    nutCount = 0;
+    totalScore = 0;
+
+    level = 1;
+    nutsNeededForOwl = 5;
+
+    lives = 3;
+
+    checkpoint = null;
+
+    message = "";
+    messageTimer = 0;
+    return;
+  }
+
+  // ---------------------------
+  // CHECKPOINT RESET (after death)
+  // ---------------------------
+
+  totalNutsCollected = checkpoint.nuts;
+  nutCount = checkpoint.nuts;
+
+  level = checkpoint.level;
+  nutsNeededForOwl = checkpoint.nutsNeeded;
+
+  lives = Math.max(lives, 1);
+
+  message = "Back to checkpoint!";
+
+  // IMPORTANT FIX:
+  // Do NOT allow owl to spawn instantly after reset
+  owlActive = false;
+  owlQueued = false;
+  owlTree = null;
+  owlCompletedForLevel = false;
+
+  // Give breathing room so owl cannot spawn immediately
+  // (prevents overlap with trees or instant trigger)
+  treeSpawnTimer = 0;
+  nextTreeIn = getRandomTreeInterval();
+
+  // ensure progression continues normally
+  isPaused = false;
+}
+
+function resetLevel() {
+  squirrel.y = canvas.height * 0.15;
+  squirrel.velocity = 0;
+
+  nuts = [];
+  crows = [];
+  thrownNuts = [];
+  nutClusters = [];
+
+  nutAmmo = 0;
+  nutCount = 0;
+  totalNutsCollected = nutsNeededForOwl - 5; // reset to start of current level
+
+  trees = [];
+  treeSpawnTimer = 0;
+  nextTreeIn = getRandomTreeInterval();
+  lastTreeObj = null;
+
+  owlTree = null;
+  owlActive = false;
+  owlQueued = false;
+  owlSpawnCountdown = 0;
+  owlCompletedForLevel = false;
+
+  treeSpawningEnabled = true;
+  updateCrowSettings();
+
+  inBonusLevel = false;
+  inBossLevel = false;
+
+  currentQuestion = null;
+  showingQuestion = false;
+  isPaused = false;
+
+  message = "You died. Restarting level.";
+  messageTimer = 180;
+}
+
+// ------------------
+// GAME LOOP
+// ------------------
+function gameLoop() {
+  if (onStartPage) {
+    drawStartPage();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onExplanationPage) {
+    drawExplanationPage();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onExplanationPage2) {
+    drawExplanationPage2();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onExplanationPage3) {
+    drawExplanationPage3();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onExplanationPage4) {
+    drawExplanationPage4();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (!isPaused) {
+    if (inBossLevel) {
+      updateBossLevel();
+    } else if (inBonusLevel) {
+      updateBonusLevel();
+    } else {
+      update();
+    }
+
+    updateSquirrelAnimation();
+    updateCrowAnimation();
+  }
+
+  if (inBossLevel) {
+    drawBossLevel();
+  } else {
+    draw();
+  }
+
+  if (onOwlPage) {
+    drawLevel1OwlPage();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onLevel1OwlPage2) {
+    drawLevel1OwlPage2();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (onLevel1OwlPage3) {
+    drawLevel1OwlPage3();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function updateSquirrelAnimation() {
+  if (isFlapping) {
+    flapTimer++;
+
+    if (flapTimer >= flapSpeed) {
+      flapTimer = 0;
+      currentFrame++;
+
+      if (currentFrame >= squirrelImages.length) {
+        currentFrame = 0;
+        isFlapping = false; // return to glide
+      }
+    }
+  } else {
+    currentFrame = 0; // always glide frame
+  }
+}
+
+function updateCrowAnimation() {
+  crowFlapTimer++;
+
+  if (crowFlapTimer >= crowFlapSpeed) {
+    crowFlapTimer = 0;
+    crowFrame++;
+
+    if (crowFrame >= crowAnimationSequence.length) {
+      crowFrame = 0;
+    }
+  }
+}
+
+function updateThrownNutsVsRaccoons() {
+  if (!bossPineTreeLoaded) return;
+
+  const pineWidth = bossPineTreeImage.naturalWidth *
+    (canvas.height / bossPineTreeImage.naturalHeight);
+  const pineX = canvas.width - pineWidth;
+  const pineScale = canvas.height / bossPineTreeImage.naturalHeight;
+  const raccoonHeight = 60;
+  const rightOffsets = [20, 50, 90];
+
+  for (let i = thrownNuts.length - 1; i >= 0; i--) {
+    const nut = thrownNuts[i];
+
+    for (let j = 0; j < raccoons.length; j++) {
+      const rc = raccoons[j];
+      if (rc.dead || rc.immune) continue;
+
+      const imgSet = raccoonSets[rc.set];
+      const currentImg = imgSet[rc.frame];
+      if (!currentImg || !currentImg.complete) continue;
+
+      const raccoonWidth = currentImg.naturalWidth *
+        (raccoonHeight / currentImg.naturalHeight);
+
+      const branchYFromBottom = branchOffsets[j] * pineScale;
+      const raccoonY = canvas.height - branchYFromBottom - raccoonHeight;
+      const raccoonX = pineX + pineWidth / 2 - raccoonWidth / 2 + rightOffsets[j];
+
+      const rcHitbox = {
+        x: raccoonX,
+        y: raccoonY,
+        width: raccoonWidth,
+        height: raccoonHeight
+      };
+
+      if (isColliding(nut, rcHitbox)) {
+        // Hit the raccoon
+        rc.health = Math.max(0, rc.health - 10);
+        rc.immune = true;
+        rc.immuneTimer = 0;
+        rc.flashTimer = 0;
+
+        totalScore += 50;
+
+        thrownNuts.splice(i, 1);
+
+        // Check if dead
+        if (rc.health <= 0) {
+          rc.dead = true;
+          rc.throwing = false;
+
+          // Set spin starting position
+          rc.spinX = raccoonX + raccoonWidth / 2;
+          rc.spinY = raccoonY + raccoonHeight / 2;
+          rc.spinVelX = 5;
+          rc.spinVelY = -3;
+
+          // Check if all raccoons are dead
+          if (raccoons.every(r => r.dead)) {
+            gameWon = true;
+          }
+        }
+
+        break;
+      }
+    }
+  }
+}
+
+</script>
+
+</body>
+</html>
